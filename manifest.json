@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Scout AI — Talent Triage</title>
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="AI-powered talent triage and candidate interview intelligence system">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scout AI">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192x192.png">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#c9a84c;--gold-light:#e8c97a;--gold-dim:#8a6e2f;
+  --teal:#2ec4b6;--teal-dim:#1a7870;
+  --purple:#8b5cf6;--purple-dim:#5b3aaa;
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222f;
+  --border:#2a2a3a;--border-gold:rgba(201,168,76,0.3);
+  --text:#e8e8f0;--text-dim:#8888a0;--text-muted:#555568;
+  --red:#ef4444;--yellow:#f59e0b;--green:#22c55e;
+  --sidebar-w:300px;
+  --header-h:56px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* noise */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.35}
+
+/* ── HEADER ── */
+header{
+  height:var(--header-h);flex-shrink:0;
+  background:rgba(10,10,15,.95);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border-gold);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;gap:10px;position:relative;z-index:200;
+}
+.header-left{display:flex;align-items:center;gap:10px}
+.sidebar-toggle{
+  width:36px;height:36px;border-radius:8px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  transition:all .2s;flex-shrink:0;
+}
+.sidebar-toggle:hover{border-color:var(--gold-dim);color:var(--gold)}
+.logo-mark{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold);letter-spacing:.06em}
+.logo-sub{font-size:9px;color:var(--text-muted);letter-spacing:.18em;text-transform:uppercase;display:none}
+@media(min-width:480px){.logo-sub{display:inline}}
+.header-right{display:flex;align-items:center;gap:8px}
+.session-pill{
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);
+  background:var(--bg3);border:1px solid var(--border);padding:4px 9px;border-radius:4px;
+  white-space:nowrap;
+}
+.session-pill span{color:var(--teal)}
+.icon-btn{
+  width:36px;height:36px;border-radius:8px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:15px;
+  transition:all .2s;flex-shrink:0;
+}
+.icon-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+.icon-btn.red-btn{border-color:rgba(239,68,68,.35);color:var(--red)}
+.icon-btn.red-btn:hover{background:rgba(239,68,68,.1);border-color:var(--red)}
+
+/* ── BODY LAYOUT ── */
+.app-body{
+  flex:1;display:flex;overflow:hidden;position:relative;
+}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+  transition:transform .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1);
+  position:relative;z-index:50;
+}
+.sidebar.collapsed{transform:translateX(-100%);width:0;border-right-width:0}
+@media(max-width:768px){
+  .sidebar{position:absolute;top:0;left:0;bottom:0;z-index:150;box-shadow:8px 0 32px rgba(0,0,0,.6)}
+  .sidebar.collapsed{transform:translateX(-100%)}
+}
+.sidebar-inner{padding:20px 16px;display:flex;flex-direction:column;gap:20px;min-width:var(--sidebar-w)}
+
+/* sidebar overlay for mobile */
+.sidebar-overlay{
+  display:none;position:absolute;inset:0;background:rgba(0,0,0,.6);z-index:140;
+  backdrop-filter:blur(3px);
+}
+@media(max-width:768px){
+  .sidebar-overlay.active{display:block}
+}
+
+.sidebar-label{
+  font-size:9px;font-weight:600;color:var(--text-muted);letter-spacing:.2em;
+  text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--border);
+  margin-bottom:2px;
+}
+
+/* ── PROFILE SELECTOR ── */
+.profile-btn{
+  background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);
+  font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;
+  padding:10px 12px;cursor:pointer;border-radius:7px;text-align:left;
+  transition:all .18s;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  width:100%;
+}
+.profile-btn .p-left{display:flex;flex-direction:column;gap:1px}
+.profile-btn .p-name{color:var(--text);font-weight:600;font-size:13px}
+.profile-btn .p-sub{font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace}
+.profile-btn .p-arrow{font-size:11px;color:var(--text-muted);transition:transform .2s;flex-shrink:0}
+.profile-btn.active{border-color:var(--gold-dim);background:rgba(201,168,76,.08)}
+.profile-btn.active .p-name{color:var(--gold)}
+.profile-btn.active .p-arrow{transform:rotate(180deg);color:var(--gold)}
+
+/* profile criteria expand */
+.profile-criteria{
+  display:none;background:rgba(201,168,76,.04);border:1px solid rgba(201,168,76,.15);
+  border-radius:7px;padding:12px;margin-top:-6px;
+}
+.profile-criteria.open{display:flex;flex-direction:column;gap:10px}
+.crit-label{font-size:9px;font-weight:600;color:var(--text-muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px}
+
+.checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.cb-item{display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 0}
+.cb-item input{
+  appearance:none;-webkit-appearance:none;width:14px;height:14px;border:1px solid var(--border);
+  border-radius:3px;background:var(--bg3);cursor:pointer;flex-shrink:0;position:relative;
+  transition:all .15s;
+}
+.cb-item input:checked{background:var(--gold);border-color:var(--gold)}
+.cb-item input:checked::after{content:'✓';position:absolute;top:-1px;left:1px;font-size:10px;color:#000;font-weight:700}
+.cb-item span{font-size:11px;color:var(--text-dim)}
+
+.kw-input{
+  width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  font-family:'DM Mono',monospace;font-size:11px;padding:8px 10px;border-radius:6px;
+  outline:none;resize:vertical;min-height:56px;
+}
+.kw-input:focus{border-color:var(--gold-dim)}
+.kw-input::placeholder{color:var(--text-muted)}
+
+/* threshold */
+.threshold-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.threshold-label{font-size:11px;color:var(--text-dim)}
+.threshold-value{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold);font-weight:500}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--gold);cursor:pointer}
+
+/* stats */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center}
+.stat-num{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;line-height:1}
+.stat-num.gold{color:var(--gold)}.stat-num.teal{color:var(--teal)}
+.stat-num.red{color:var(--red)}.stat-num.green{color:var(--green)}
+.stat-label{font-size:9px;color:var(--text-muted);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+
+/* ── CONTENT ── */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TABS ── */
+.tabs{
+  display:flex;border-bottom:1px solid var(--border);padding:0 16px;
+  background:var(--bg2);flex-shrink:0;overflow-x:auto;
+  scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{
+  background:none;border:none;color:var(--text-muted);
+  font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:14px 16px;cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .18s;white-space:nowrap;margin-bottom:-1px;
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ── TAB CONTENT ── */
+.tab-content{display:none;padding:20px 16px;flex:1;overflow-y:auto;height:0}
+.tab-content.active{display:block}
+@media(min-width:640px){.tab-content{padding:24px 24px}}
+
+/* ── INGEST TAB ── */
+.dropzone{
+  border:2px dashed var(--border);border-radius:12px;padding:40px 20px;
+  text-align:center;cursor:pointer;transition:all .25s;background:var(--bg2);
+  position:relative;overflow:hidden;
+}
+.dropzone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(201,168,76,.04) 0%,transparent 70%);pointer-events:none}
+.dropzone:hover,.dropzone.drag-over{border-color:var(--gold-dim);background:rgba(201,168,76,.04)}
+.dropzone-icon{font-size:36px;margin-bottom:10px;opacity:.6}
+.dropzone-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--text);margin-bottom:6px}
+.dropzone-sub{font-size:11px;color:var(--text-muted);line-height:1.6}
+.dropzone-sub strong{color:var(--teal)}
+.file-input{display:none}
+
+.or-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.15em}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.paste-area{
+  width:100%;height:110px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;
+  padding:12px;resize:vertical;outline:none;line-height:1.5;
+}
+.paste-area:focus{border-color:var(--gold-dim)}
+
+.process-btn{
+  background:linear-gradient(135deg,var(--gold-dim),var(--gold));
+  border:none;color:#000;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;padding:13px 28px;border-radius:7px;
+  cursor:pointer;transition:all .2s;margin-top:14px;width:100%;
+}
+.process-btn:hover:not(:disabled){background:linear-gradient(135deg,var(--gold),var(--gold-light));transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,168,76,.3)}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+.queue-section{margin-top:24px}
+.section-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.section-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:600}
+.section-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--teal);background:rgba(46,196,182,.1);border:1px solid rgba(46,196,182,.2);padding:2px 8px;border-radius:3px}
+
+.queue-item{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.queue-type{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--bg3);flex-shrink:0}
+.queue-info{flex:1;min-width:0}
+.queue-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--text-muted);margin-top:1px}
+.queue-status{font-size:9px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+.queue-status.pending{color:var(--text-muted);background:var(--bg3);border:1px solid var(--border)}
+.queue-status.processing{color:var(--gold);background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.2);animation:pulse-text 1.4s infinite}
+.queue-status.done{color:var(--green);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2)}
+.queue-status.error{color:var(--red);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2)}
+@keyframes pulse-text{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* ── CANDIDATES TAB ── */
+.filter-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-chip{font-size:10px;font-family:'DM Mono',monospace;padding:5px 10px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text-muted);cursor:pointer;transition:all .15s;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.filter-chip.active{border-color:var(--gold-dim);color:var(--gold);background:rgba(201,168,76,.08)}
+.filter-chip:hover{color:var(--text)}
+
+.sort-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.sort-label{font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+.sort-select{background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);font-family:'DM Mono',monospace;font-size:10px;padding:4px 8px;border-radius:4px;outline:none;cursor:pointer}
+.sort-select:focus{border-color:var(--gold-dim)}
+
+/* search */
+.search-wrap{position:relative;flex:1;min-width:140px}
+.search-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:6px 10px 6px 30px;border-radius:6px;outline:none}
+.search-input:focus{border-color:var(--gold-dim)}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);pointer-events:none}
+
+/* candidate card */
+.candidate-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .18s;cursor:pointer;margin-bottom:10px}
+.candidate-card:hover{border-color:var(--border-gold)}
+.candidate-card.expanded{border-color:var(--gold-dim)}
+
+.card-header{padding:14px 16px;display:flex;align-items:flex-start;gap:12px}
+.score-ring{
+  width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-family:'Playfair Display',serif;font-size:17px;font-weight:700;
+}
+.score-ring.high{background:rgba(34,197,94,.12);color:var(--green);border:2px solid rgba(34,197,94,.35)}
+.score-ring.mid{background:rgba(245,158,11,.12);color:var(--yellow);border:2px solid rgba(245,158,11,.35)}
+.score-ring.low{background:rgba(239,68,68,.12);color:var(--red);border:2px solid rgba(239,68,68,.35)}
+
+.cand-info{flex:1;min-width:0}
+.cand-name{font-family:'Playfair Display',serif;font-size:16px;font-weight:600;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cand-headline{font-size:11px;color:var(--text-dim);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heatmap{display:flex;gap:3px;margin-bottom:5px;flex-wrap:wrap}
+.hbar{height:5px;border-radius:2px;flex-shrink:0}
+.hbar.g{background:var(--green)}.hbar.y{background:var(--yellow)}.hbar.r{background:var(--red)}
+.tags{display:flex;flex-wrap:wrap;gap:3px}
+.tag{font-size:9px;font-family:'DM Mono',monospace;padding:2px 6px;border-radius:3px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.tag.risk-hi{background:rgba(239,68,68,.14);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.tag.risk-lo{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.18)}
+.tag.risk-md{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.18)}
+.tag.tech{background:rgba(46,196,182,.1);color:var(--teal);border:1px solid rgba(46,196,182,.18)}
+.tag.flag{background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.14)}
+.tag.pass{background:rgba(34,197,94,.08);color:#86efac;border:1px solid rgba(34,197,94,.14)}
+.tag.profile{background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(139,92,246,.18)}
+.tag.kw{background:rgba(201,168,76,.1);color:var(--gold);border:1px solid rgba(201,168,76,.2)}
+
+.card-right{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0}
+.score-pill{font-family:'DM Mono',monospace;font-size:9px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.score-pill .lbl{color:var(--text-muted)}.score-pill .val{color:var(--text)}
+
+/* card expand */
+.card-detail{display:none;padding:0 16px 16px;border-top:1px solid var(--border);padding-top:0}
+.card-detail.open{display:block;padding-top:16px}
+
+.detail-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px}
+@media(min-width:640px){.detail-grid{grid-template-columns:1fr 1fr}}
+
+.dp{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px}
+.dp-title{font-size:9px;font-weight:600;color:var(--text-muted);letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+
+.tenure-table{width:100%;border-collapse:collapse}
+.tenure-table td{font-size:11px;padding:4px 5px;border-bottom:1px solid var(--border);vertical-align:top}
+.tenure-table td:first-child{color:var(--text-dim);width:60%}
+.tenure-table td:last-child{font-family:'DM Mono',monospace;font-size:10px;text-align:right}
+
+.auto-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.auto-fill{height:100%;border-radius:3px;transition:width .5s}
+.auto-fill.hi{background:linear-gradient(90deg,var(--teal),#5eead4)}
+.auto-fill.md{background:linear-gradient(90deg,var(--yellow),#fbbf24)}
+.auto-fill.lo{background:linear-gradient(90deg,var(--red),#f87171)}
+.auto-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+
+/* interview brief */
+.int-brief{background:var(--bg3);border:1px solid var(--border-gold);border-radius:8px;padding:14px;margin-top:2px}
+.brief-row{margin-bottom:10px}
+.brief-row:last-child{margin-bottom:0}
+.brief-qlabel{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;margin-bottom:4px}
+.brief-qlabel.bs{color:var(--red)}.brief-qlabel.vis{color:var(--teal)}.brief-qlabel.sta{color:var(--yellow)}
+.brief-qtext{font-size:12px;color:var(--text);line-height:1.6;font-style:italic}
+
+/* notes textarea in card */
+.card-notes{
+  width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  font-family:'DM Mono',monospace;font-size:11px;padding:9px 10px;border-radius:7px;
+  resize:vertical;min-height:60px;outline:none;margin-top:10px;
+}
+.card-notes:focus{border-color:var(--gold-dim)}
+
+.card-actions{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+.act-btn{
+  font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;padding:7px 14px;border-radius:5px;border:1px solid;cursor:pointer;transition:all .15s;
+}
+.act-btn.advance{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+.act-btn.advance:hover{background:rgba(34,197,94,.2)}
+.act-btn.reject{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--red)}
+.act-btn.reject:hover{background:rgba(239,68,68,.2)}
+.act-btn.hold{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--yellow)}
+.act-btn.hold:hover{background:rgba(245,158,11,.2)}
+.act-btn.brief{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold)}
+.act-btn.brief:hover{background:rgba(201,168,76,.2)}
+.act-btn.rerun{background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.3);color:var(--purple)}
+.act-btn.rerun:hover{background:rgba(139,92,246,.2)}
+
+/* status indicator on card */
+.pipeline-badge{
+  font-size:9px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:3px;letter-spacing:.06em;text-transform:uppercase;
+}
+.pipeline-badge.review{color:var(--yellow);background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2)}
+.pipeline-badge.advanced{color:var(--green);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2)}
+.pipeline-badge.rejected{color:var(--red);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2)}
+.pipeline-badge.hold{color:var(--text-dim);background:var(--bg3);border:1px solid var(--border)}
+
+/* ── PIPELINE TAB ── */
+.pipeline-wrap{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:600px){.pipeline-wrap{grid-template-columns:1fr 1fr 1fr}}
+.pcol{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.pcol-hdr{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.pcol-hdr.rev{color:var(--gold)}.pcol-hdr.adv{color:var(--green)}.pcol-hdr.rej{color:var(--red)}.pcol-hdr.hld{color:var(--text-muted)}
+.pcard{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 11px;margin-bottom:7px}
+.pcard-name{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px}
+.pcard-meta{font-size:10px;font-family:'DM Mono',monospace;color:var(--text-muted)}
+
+/* ── PROCESSING OVERLAY ── */
+#proc-overlay{
+  display:none;position:fixed;inset:0;z-index:500;
+  background:rgba(10,10,15,.92);backdrop-filter:blur(14px);
+  align-items:center;justify-content:center;flex-direction:column;gap:20px;
+}
+#proc-overlay.active{display:flex}
+.proc-title{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);text-align:center}
+.scan-bar{width:min(440px,90vw);height:3px;background:var(--border);border-radius:2px;overflow:hidden;position:relative}
+.scan-bar::after{content:'';position:absolute;left:-40%;top:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,var(--gold),transparent);animation:scan 1.3s ease-in-out infinite}
+@keyframes scan{0%{left:-40%}100%{left:140%}}
+.proc-log{width:min(440px,90vw);max-height:180px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text-dim);line-height:1.9}
+.ll{display:block}.ll.act{color:var(--teal)}.ll.done{color:var(--green)}.ll.err{color:var(--red)}
+.proc-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted);text-align:center}
+
+/* ── SETTINGS MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(10,10,15,.93);backdrop-filter:blur(16px);align-items:center;justify-content:center;padding:16px}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border-gold);border-radius:14px;padding:28px 24px;width:min(500px,100%);max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:20px}
+.modal-header{display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold)}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;padding:4px}
+.modal-close:hover{color:var(--text)}
+.modal-section{display:flex;flex-direction:column;gap:10px}
+.modal-sec-title{font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:.18em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.modal-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:9px 12px;border-radius:7px;width:100%;outline:none}
+.modal-input:focus{border-color:var(--gold-dim)}
+.modal-label{font-size:12px;color:var(--text-dim);display:flex;flex-direction:column;gap:5px}
+.modal-status{font-size:10px;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:6px}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--text-muted)}
+.sdot.ok{background:var(--green)}.sdot.err{background:var(--red)}
+.modal-btn{
+  background:linear-gradient(135deg,var(--gold-dim),var(--gold));border:none;color:#000;
+  font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;padding:11px 20px;border-radius:7px;cursor:pointer;transition:all .2s;
+}
+.modal-btn:hover{background:linear-gradient(135deg,var(--gold),var(--gold-light))}
+.modal-btn.danger{background:linear-gradient(135deg,#7f1d1d,var(--red));color:#fff}
+.modal-btn.outline{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+.modal-btn.outline:hover{border-color:var(--gold-dim);color:var(--gold)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── SHREDDER CONFIRM ── */
+#shredder-modal{display:none;position:fixed;inset:0;z-index:700;background:rgba(10,10,15,.95);backdrop-filter:blur(18px);align-items:center;justify-content:center;padding:16px}
+#shredder-modal.active{display:flex}
+.shred-dialog{background:var(--bg2);border:1px solid rgba(239,68,68,.4);border-radius:14px;padding:36px 28px;max-width:420px;text-align:center}
+.shred-icon{font-size:48px;margin-bottom:16px}
+.shred-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--red);margin-bottom:8px}
+.shred-desc{font-size:12px;color:var(--text-dim);line-height:1.65;margin-bottom:24px}
+.shred-confirm{background:linear-gradient(135deg,#7f1d1d,var(--red));border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:12px 24px;border-radius:6px;cursor:pointer;margin-right:8px;transition:all .2s}
+.shred-cancel{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;padding:11px 20px;border-radius:6px;cursor:pointer}
+.shred-cancel:hover{border-color:var(--text-muted);color:var(--text)}
+
+/* empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--text-muted)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--text-dim);margin-bottom:6px}
+.empty-sub{font-size:12px;line-height:1.6}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* safe area */
+@supports(padding:max(0px)){
+  header{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+}
+
+/* ── BULK ACTION BAR ── */
+.bulk-bar{
+  background:var(--bg3);border:1px solid var(--border-gold);border-radius:8px;
+  padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;gap:10px;flex-wrap:wrap;
+  font-size:11px;color:var(--text-dim);font-family:'DM Mono',monospace;
+}
+.bulk-bar.hidden{display:none}
+.bulk-actions{display:flex;gap:6px}
+
+/* ── NOTES & RATING IN PIPELINE ── */
+.pcard-stars{display:flex;gap:2px;margin-top:3px}
+.star{font-size:11px;color:var(--text-muted);cursor:pointer;transition:color .1s}
+.star.on{color:var(--gold)}
+
+/* score comparison mini chart */
+.mini-chart{display:flex;align-items:flex-end;gap:3px;height:36px;margin-top:8px}
+.mc-bar{flex:1;background:var(--border);border-radius:2px 2px 0 0;position:relative;min-width:8px;transition:background .2s}
+.mc-bar.sel{background:var(--gold)}
+.mc-label{font-size:8px;color:var(--text-muted);text-align:center;margin-top:2px;font-family:'DM Mono',monospace}
+
+/* ── COMPARE VIEW ── */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:540px){.compare-grid{grid-template-columns:1fr}}
+.compare-card{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:14px}
+.compare-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;margin-bottom:10px;color:var(--gold)}
+.compare-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}
+.compare-row:last-child{border-bottom:none}
+.cr-key{color:var(--text-muted)}
+.cr-val{font-family:'DM Mono',monospace;color:var(--text)}
+.cr-val.win{color:var(--green);font-weight:600}
+
+/* ── QUICK NOTE TOAST ── */
+.toast{
+  position:fixed;bottom:20px;right:20px;z-index:800;
+  background:var(--bg3);border:1px solid var(--border-gold);border-radius:8px;
+  padding:10px 16px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;
+  transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;
+}
+.toast.show{transform:translateY(0);opacity:1}
+
+</style>
+</head>
+<body>
+
+<!-- PROCESSING OVERLAY -->
+<div id="proc-overlay">
+  <div class="proc-title">Scout Intelligence Active</div>
+  <div class="scan-bar"></div>
+  <div class="proc-log" id="proc-log"></div>
+  <div class="proc-sub" id="proc-sub">Initializing...</div>
+</div>
+
+<!-- SHREDDER CONFIRM -->
+<div id="shredder-modal">
+  <div class="shred-dialog">
+    <div class="shred-icon">🗑️</div>
+    <div class="shred-title">Execute The Shredder?</div>
+    <div class="shred-desc">All candidate data, triage results, notes, and pipeline decisions will be permanently erased from IndexedDB and session memory. This cannot be undone.</div>
+    <button class="shred-confirm" onclick="executeShredder()">Confirm — Shred All Data</button>
+    <button class="shred-cancel" onclick="closeModal('shredder-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚙ Settings</div>
+      <button class="modal-close" onclick="closeModal('settings-modal')">✕</button>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-sec-title">AI Engine — Groq API</div>
+      <label class="modal-label">
+        API Key
+        <input type="password" class="modal-input" id="groq-key" placeholder="gsk_..." oninput="checkGroqKey()">
+      </label>
+      <div class="modal-status">
+        <div class="sdot" id="groq-dot"></div>
+        <span id="groq-label" style="font-size:10px;color:var(--text-muted)">Not configured</span>
+      </div>
+      <label class="modal-label">
+        Model
+        <select class="modal-input" id="groq-model">
+          <option value="llama-3.3-70b-versatile" selected>llama-3.3-70b-versatile (best)</option>
+          <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (fast)</option>
+          <option value="llama-4-scout-17b-16e-instruct">llama-4-scout (latest)</option>
+          <option value="mixtral-8x7b-32768">mixtral-8x7b (large context)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-sec-title">Data Management</div>
+      <div class="btn-row">
+        <button class="modal-btn outline" onclick="exportData()">📤 Export Session JSON</button>
+        <button class="modal-btn outline" onclick="document.getElementById('import-file').click()">📥 Import Session JSON</button>
+        <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-sec-title">Danger Zone</div>
+      <div class="btn-row">
+        <button class="modal-btn danger" onclick="closeModal('settings-modal');openShredder()">🗑️ Shredder — Wipe All Data</button>
+      </div>
+    </div>
+
+
+    <div class="modal-section">
+      <div class="modal-sec-title">Downloads — Scout Toolkit</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;line-height:1.6;margin-bottom:8px">
+        Download the Python Fetcher and launch scripts to automate Indeed bulk resume downloads.
+      </div>
+      <div class="btn-row">
+        <button class="modal-btn outline" onclick="downloadFile('scout_fetcher.py', fetcherPySrc, 'text/plain')">🐍 scout_fetcher.py</button>
+        <button class="modal-btn outline" onclick="downloadFile('.env.example', envExampleSrc, 'text/plain')">🔑 .env.example</button>
+        <button class="modal-btn outline" onclick="downloadFile('start.bat', startBatSrc, 'text/plain')">⚙ start.bat</button>
+        <button class="modal-btn outline" onclick="downloadFile('stop.bat', stopBatSrc, 'text/plain')">🛑 stop.bat</button>
+        <button class="modal-btn outline" onclick="downloadFile('requirements.txt', reqsSrc, 'text/plain')">📦 requirements.txt</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:8px;line-height:1.7">
+        Setup: Copy .env.example → .env · pip install -r requirements.txt · playwright install chromium · Run start.bat
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-sec-title">About</div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.7;font-family:'DM Mono',monospace">
+        Scout AI v2.0 — Talent Triage System<br>
+        AI Engine: Groq API (llama-3.3-70b)<br>
+        Storage: IndexedDB — local only, zero cloud<br>
+        No candidate data leaves your device.<br>
+        <span style="color:var(--text-dim)">Only AI analysis calls reach Groq servers.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Panel">
+  <span id="sb-icon">◀</span>
+</button>
+    <div class="logo-mark">THE SCOUT</div>
+    <div class="logo-sub">Talent Triage</div>
+  </div>
+  <div class="header-right">
+    <div class="session-pill" id="session-pill">Candidates: <span id="session-count">0</span></div>
+    <button class="icon-btn" id="install-btn" onclick="installPWA()" title="Install App" style="display:none;border-color:rgba(46,196,182,.4);color:var(--teal)">⬇</button>
+    <button class="icon-btn" onclick="openModal('settings-modal')" title="Settings">⚙</button>
+    <button class="icon-btn red-btn" onclick="openShredder()" title="Shredder">🗑</button>
+  </div>
+</header>
+
+<!-- APP BODY -->
+<div class="app-body">
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+
+      <!-- PROFILE SELECTOR -->
+      <div>
+        <div class="sidebar-label">Selection Profile</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px" id="profile-list">
+
+          <!-- OPS -->
+          <button class="profile-btn active" data-profile="ops" onclick="setProfile(this,'ops')">
+            <div class="p-left">
+              <span class="p-name">Ops / Bookkeeping</span>
+              <span class="p-sub">Accuracy · Tech · Stability</span>
+            </div>
+            <span class="p-arrow">▾</span>
+          </button>
+          <div class="profile-criteria open" id="crit-ops">
+            <div>
+              <div class="crit-label">Hard Gate Criteria</div>
+              <div class="checkbox-grid">
+                <label class="cb-item"><input type="checkbox" checked data-crit="tech_fluency"><span>Tech Fluency</span></label>
+                <label class="cb-item"><input type="checkbox" checked data-crit="accuracy_language"><span>Accuracy Language</span></label>
+                <label class="cb-item"><input type="checkbox" checked data-crit="stability"><span>Stability (&gt;threshold)</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="odoo"><span>Odoo Experience</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="remote_capable"><span>Remote Capable</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="bookkeeping"><span>Bookkeeping Cert.</span></label>
+              </div>
+            </div>
+            <div>
+              <div class="crit-label">Custom Keywords</div>
+              <textarea class="kw-input" id="kw-ops" placeholder="e.g. QuickBooks, reconciliation, AP/AR...">odoo, quickbooks, xero, voip, crm, reconcil, invoice, bookkeep</textarea>
+            </div>
+          </div>
+
+          <!-- SALES -->
+          <button class="profile-btn" data-profile="sales" onclick="setProfile(this,'sales')">
+            <div class="p-left">
+              <span class="p-name">Sales / BizDev</span>
+              <span class="p-sub">Industry DNA · Tenure · Outcomes</span>
+            </div>
+            <span class="p-arrow">▾</span>
+          </button>
+          <div class="profile-criteria" id="crit-sales">
+            <div>
+              <div class="crit-label">Hard Gate Criteria</div>
+              <div class="checkbox-grid">
+                <label class="cb-item"><input type="checkbox" checked data-crit="industry_dna"><span>Industry DNA</span></label>
+                <label class="cb-item"><input type="checkbox" checked data-crit="outcome_language"><span>Outcome Language</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="crm_experience"><span>CRM Experience</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="b2b"><span>B2B Track Record</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="quota_hitting"><span>Quota Achieved</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="cold_outbound"><span>Cold Outbound</span></label>
+              </div>
+            </div>
+            <div>
+              <div class="crit-label">Custom Keywords</div>
+              <textarea class="kw-input" id="kw-sales" placeholder="e.g. Salesforce, pipeline, territory...">revenue, pipeline, quota, b2b, salesforce, hubspot, closing, prospecting</textarea>
+            </div>
+          </div>
+
+          <!-- RECEPTION -->
+          <button class="profile-btn" data-profile="reception" onclick="setProfile(this,'reception')">
+            <div class="p-left">
+              <span class="p-name">Reception</span>
+              <span class="p-sub">Location · Multi-task · Reliability</span>
+            </div>
+            <span class="p-arrow">▾</span>
+          </button>
+          <div class="profile-criteria" id="crit-reception">
+            <div>
+              <div class="crit-label">Hard Gate Criteria</div>
+              <div class="checkbox-grid">
+                <label class="cb-item"><input type="checkbox" checked data-crit="local_commute"><span>Local / Commutable</span></label>
+                <label class="cb-item"><input type="checkbox" checked data-crit="reliability"><span>Stability &amp; Reliability</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="phone_skills"><span>Multi-line Phone</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="scheduling"><span>Scheduling Exp.</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="bilingual"><span>Bilingual</span></label>
+                <label class="cb-item"><input type="checkbox" data-crit="customer_facing"><span>Customer-Facing</span></label>
+              </div>
+            </div>
+            <div>
+              <div class="crit-label">Custom Keywords</div>
+              <textarea class="kw-input" id="kw-reception" placeholder="e.g. multi-line, scheduling, HIPAA...">scheduling, front desk, phone, customer service, multi-line, appointment, administrative</textarea>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- THRESHOLD -->
+      <div>
+        <div class="sidebar-label">Flight Risk Threshold</div>
+        <div style="margin-top:10px">
+          <div class="threshold-row">
+            <span class="threshold-label">Min Avg Tenure</span>
+            <span class="threshold-value" id="threshold-display">2.0 yrs</span>
+          </div>
+          <input type="range" id="tenure-threshold" min="0.5" max="5" step="0.5" value="2"
+            oninput="document.getElementById('threshold-display').textContent=parseFloat(this.value).toFixed(1)+' yrs'">
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div>
+        <div class="sidebar-label">Session Stats</div>
+        <div class="stats-grid" style="margin-top:8px">
+          <div class="stat-box"><div class="stat-num gold" id="stat-total">0</div><div class="stat-label">Total</div></div>
+          <div class="stat-box"><div class="stat-num teal" id="stat-passed">0</div><div class="stat-label">Passed</div></div>
+          <div class="stat-box"><div class="stat-num red" id="stat-risk">0</div><div class="stat-label">Risk</div></div>
+          <div class="stat-box"><div class="stat-num green" id="stat-advanced">0</div><div class="stat-label">Advanced</div></div>
+        </div>
+      </div>
+
+      <!-- GROQ STATUS MINI -->
+      <div>
+        <div class="sidebar-label">AI Status</div>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+          <div class="sdot" id="sidebar-ai-dot"></div>
+          <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace" id="sidebar-ai-label">Configure in ⚙ Settings</span>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('ingest',this)">① Ingest</button>
+      <button class="tab-btn" onclick="showTab('candidates',this)">② Candidates</button>
+      <button class="tab-btn" onclick="showTab('pipeline',this)">③ Pipeline</button>
+      <button class="tab-btn" onclick="showTab('compare',this)">④ Compare</button>
+    </div>
+
+    <!-- ── INGEST ── -->
+    <div class="tab-content active" id="tab-ingest">
+      <div class="dropzone" id="dropzone"
+        onclick="document.getElementById('file-input').click()"
+        ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <div class="dropzone-icon">📂</div>
+        <div class="dropzone-title">Drop Resumes or CSV</div>
+        <div class="dropzone-sub">
+          <strong>PDF resumes</strong> or <strong>Indeed CSV export</strong><br>
+          Multiple files — bulk AI triage enabled
+        </div>
+        <input type="file" class="file-input" id="file-input" multiple accept=".pdf,.csv,.txt" onchange="handleFileInput(event)">
+      </div>
+
+      <div class="or-divider">or paste CSV / resume text</div>
+
+      <textarea class="paste-area" id="csv-paste" placeholder="Paste Indeed CSV export or raw resume text here...&#10;&#10;For CSV: Name, Title, Email, Location, Resume Text columns..."></textarea>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+        <button class="process-btn" id="process-btn" onclick="startProcessing()" style="width:auto;flex:1;min-width:200px">
+          ⚡ Run Scout Analysis
+        </button>
+        <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace" id="file-count-label"></span>
+      </div>
+
+      <div class="queue-section" id="queue-section" style="display:none">
+        <div class="section-header" style="margin-top:20px">
+          <div class="section-title">Processing Queue</div>
+          <div class="section-badge" id="queue-badge">0 items</div>
+        </div>
+        <div id="queue-list"></div>
+      </div>
+    </div>
+
+    <!-- ── CANDIDATES ── -->
+    <div class="tab-content" id="tab-candidates">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="search-input" placeholder="Search name, company, skill..." oninput="renderCandidates()">
+        </div>
+        <select class="sort-select" id="sort-select" onchange="renderCandidates()">
+          <option value="score">Sort: Score ↓</option>
+          <option value="name">Sort: Name A-Z</option>
+          <option value="tenure">Sort: Avg Tenure ↓</option>
+          <option value="autonomy">Sort: Autonomy ↓</option>
+          <option value="recent">Sort: Recent</option>
+        </select>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-chip active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-chip" onclick="setFilter('high',this)">Score 7+</button>
+        <button class="filter-chip" onclick="setFilter('risk',this)">⚠ Flight Risk</button>
+        <button class="filter-chip" onclick="setFilter('passed',this)">Gates Pass</button>
+        <button class="filter-chip" onclick="setFilter('tech',this)">Tech Fluent</button>
+        <button class="filter-chip" onclick="setFilter('advanced',this)">Advanced</button>
+        <button class="filter-chip" onclick="setFilter('hold',this)">On Hold</button>
+      </div>
+      <div class="bulk-bar hidden" id="bulk-bar">
+        <span id="bulk-label">0 selected</span>
+        <div class="bulk-actions">
+          <button class="act-btn advance" onclick="bulkMove('advanced')">✓ Advance All</button>
+          <button class="act-btn reject" onclick="bulkMove('rejected')">✗ Reject All</button>
+          <button class="act-btn hold" onclick="bulkMove('hold')">⏸ Hold All</button>
+        </div>
+      </div>
+      <div id="candidates-list">
+        <div class="empty">
+          <div class="empty-icon">🎯</div>
+          <div class="empty-title">No Candidates Yet</div>
+          <div class="empty-sub">Drop resumes or paste CSV in the Ingest tab,<br>then run Scout Analysis.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PIPELINE ── -->
+    <div class="tab-content" id="tab-pipeline">
+      <div class="pipeline-wrap">
+        <div class="pcol">
+          <div class="pcol-hdr rev">Under Review <span class="section-badge" id="p-rev-n">0</span></div>
+          <div id="p-rev"></div>
+        </div>
+        <div class="pcol">
+          <div class="pcol-hdr adv">Advanced <span class="section-badge" id="p-adv-n">0</span></div>
+          <div id="p-adv"></div>
+        </div>
+        <div class="pcol">
+          <div class="pcol-hdr hld">On Hold <span class="section-badge" id="p-hld-n">0</span></div>
+          <div id="p-hld"></div>
+        </div>
+        <div class="pcol">
+          <div class="pcol-hdr rej">Rejected <span class="section-badge" id="p-rej-n">0</span></div>
+          <div id="p-rej"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COMPARE ── -->
+    <div class="tab-content" id="tab-compare">
+      <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace">Select 2 candidates to compare side-by-side:</span>
+        <select class="sort-select" id="cmp-a" onchange="renderCompare()" style="flex:1;min-width:140px"><option value="">-- Candidate A --</option></select>
+        <select class="sort-select" id="cmp-b" onchange="renderCompare()" style="flex:1;min-width:140px"><option value="">-- Candidate B --</option></select>
+      </div>
+      <div id="compare-view">
+        <div class="empty">
+          <div class="empty-icon">⚖️</div>
+          <div class="empty-title">Side-by-Side Comparison</div>
+          <div class="empty-sub">Select two candidates above to compare their scores,<br>tenure history, and interview intelligence.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app-body -->
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+const PROFILES = {
+  ops:{name:'Ops / Bookkeeping',kwField:'kw-ops'},
+  sales:{name:'Sales / BizDev',kwField:'kw-sales'},
+  reception:{name:'Reception',kwField:'kw-reception'}
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const S = {
+  candidates:[],
+  files:[],
+  profile:'ops',
+  filter:'all',
+  selected:new Set()
+};
+
+// ─── INDEXEDDB ────────────────────────────────────────────────────────────────
+let db;
+async function initDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('ScoutV2',1);
+    r.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('candidates')) d.createObjectStore('candidates',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('settings')) d.createObjectStore('settings',{keyPath:'k'});
+    };
+    r.onsuccess=e=>{db=e.target.result;res()};
+    r.onerror=()=>rej(r.error);
+  });
+}
+function dbPut(store,obj){if(!db)return;db.transaction(store,'readwrite').objectStore(store).put(obj)}
+function dbGetAll(store){return new Promise(res=>{if(!db)return res([]);const r=db.transaction(store,'readonly').objectStore(store).getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>res([])})}
+function dbGet(store,key){return new Promise(res=>{if(!db)return res(null);const r=db.transaction(store,'readonly').objectStore(store).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)})}
+
+function saveCandidate(c){dbPut('candidates',c)}
+function saveSetting(k,v){dbPut('settings',{k,v})}
+async function loadSetting(k){const r=await dbGet('settings',k);return r?r.v:null}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async()=>{
+  await initDB();
+  // load saved settings
+  const gk=await loadSetting('groq_key');
+  if(gk){document.getElementById('groq-key').value=gk;checkGroqKey()}
+  const gm=await loadSetting('groq_model');
+  if(gm){const sel=document.getElementById('groq-model');for(let o of sel.options)if(o.value===gm){o.selected=true;break}}
+  // load candidates
+  const saved=await dbGetAll('candidates');
+  if(saved.length){S.candidates=saved;renderCandidates();updateStats();updatePipeline();updateCompareSelects();updateSessionCount()}
+})();
+
+// ─── SIDEBAR TOGGLE ───────────────────────────────────────────────────────────
+let sidebarOpen=true;
+function toggleSidebar(){
+  sidebarOpen=!sidebarOpen;
+  const sb=document.getElementById('sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  const ic=document.getElementById('sb-icon');
+  sb.classList.toggle('collapsed',!sidebarOpen);
+  ov.classList.toggle('active',sidebarOpen && window.innerWidth<=768);
+  if(ic) ic.textContent = sidebarOpen ? '◀' : '▶';
+}
+// auto-collapse on mobile
+if(window.innerWidth<=768){
+  document.getElementById('sidebar').classList.add('collapsed');
+  sidebarOpen=false;
+  const ic=document.getElementById('sb-icon');
+  if(ic) ic.textContent='▶';
+}
+
+// ─── MODALS ───────────────────────────────────────────────────────────────────
+function openModal(id){document.getElementById(id).classList.add('active')}
+function closeModal(id){document.getElementById(id).classList.remove('active')}
+function openShredder(){openModal('shredder-modal')}
+
+// ─── SETTINGS / API KEY ───────────────────────────────────────────────────────
+function checkGroqKey(){
+  const key=document.getElementById('groq-key').value.trim();
+  const dot=document.getElementById('groq-dot');
+  const lbl=document.getElementById('groq-label');
+  const sdot=document.getElementById('sidebar-ai-dot');
+  const slbl=document.getElementById('sidebar-ai-label');
+  if(key.startsWith('gsk_')&&key.length>20){
+    dot.className='sdot ok';lbl.textContent='Groq API Ready';lbl.style.color='var(--green)';
+    sdot.className='sdot ok';slbl.textContent='Groq API ready';slbl.style.color='var(--green)';
+    saveSetting('groq_key',key);
+  }else if(key.length>0){
+    dot.className='sdot err';lbl.textContent='Invalid key (needs gsk_...)';lbl.style.color='var(--red)';
+    sdot.className='sdot err';slbl.textContent='Invalid key';
+  }else{
+    dot.className='sdot';lbl.textContent='Not configured';lbl.style.color='var(--text-muted)';
+    sdot.className='sdot';slbl.textContent='Configure in ⚙ Settings';slbl.style.color='var(--text-muted)';
+  }
+  const model=document.getElementById('groq-model').value;
+  saveSetting('groq_model',model);
+}
+function getGroqKey(){return document.getElementById('groq-key').value.trim()}
+function getModel(){return document.getElementById('groq-model').value}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function showTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='compare')updateCompareSelects();
+  // close sidebar on mobile when tab changes
+  if(window.innerWidth<=768&&sidebarOpen)toggleSidebar();
+}
+
+// ─── PROFILE ─────────────────────────────────────────────────────────────────
+function setProfile(btn,profile){
+  document.querySelectorAll('.profile-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  S.profile=profile;
+  // close all criteria panels, open selected
+  document.querySelectorAll('.profile-criteria').forEach(p=>p.classList.remove('open'));
+  document.getElementById('crit-'+profile).classList.add('open');
+}
+
+function getActiveCriteria(profile){
+  const container=document.getElementById('crit-'+profile);
+  if(!container)return[];
+  return Array.from(container.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.getAttribute('data-crit'));
+}
+
+function getCustomKeywords(profile){
+  const ta=document.getElementById('kw-'+profile);
+  if(!ta)return[];
+  return ta.value.split(/[,\n]+/).map(s=>s.trim().toLowerCase()).filter(Boolean);
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────────────────────────
+function handleDragOver(e){e.preventDefault();document.getElementById('dropzone').classList.add('drag-over')}
+function handleDragLeave(){document.getElementById('dropzone').classList.remove('drag-over')}
+function handleDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('drag-over');addFiles(Array.from(e.dataTransfer.files))}
+function handleFileInput(e){addFiles(Array.from(e.target.files))}
+function addFiles(files){S.files=[...S.files,...files];updateFileCount()}
+function updateFileCount(){
+  const n=S.files.length;
+  document.getElementById('file-count-label').textContent=n>0?`${n} file${n>1?'s':''} queued`:'';
+}
+
+// ─── CSV PARSE ────────────────────────────────────────────────────────────────
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  if(lines.length<2)return[];
+  const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,'').toLowerCase());
+  return lines.slice(1).map((line,i)=>{
+    const vals=parseCSVLine(line);
+    const obj={};
+    headers.forEach((h,j)=>obj[h]=(vals[j]||'').replace(/"/g,'').trim());
+    const rawText=Object.values(obj).join(' ');
+    return{
+      id:'csv_'+Date.now()+'_'+i,
+      name:obj['name']||obj['full name']||obj['applicant']||`Candidate ${i+1}`,
+      title:obj['title']||obj['current title']||obj['position']||'',
+      email:obj['email']||'',phone:obj['phone']||'',
+      location:obj['location']||obj['city']||'',
+      rawText,source:'csv',raw:obj,inputType:'csv'
+    };
+  }).filter(c=>c.name);
+}
+function parseCSVLine(line){
+  const r=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    if(line[i]==='"'){inQ=!inQ}
+    else if(line[i]===','&&!inQ){r.push(cur);cur=''}
+    else{cur+=line[i]}
+  }
+  r.push(cur);return r;
+}
+
+// ─── PDF EXTRACTION ───────────────────────────────────────────────────────────
+async function extractPDFText(file){
+  return new Promise(res=>{
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      try{const t=await parsePDFBuf(e.target.result);res(t)}
+      catch{res(`[PDF: ${file.name}]`)}
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+async function parsePDFBuf(buf){
+  const bytes=new Uint8Array(buf);
+  const raw=new TextDecoder('latin1').decode(bytes);
+  let text='';
+  for(const m of raw.matchAll(/BT\s*(.*?)\s*ET/gs)){
+    const blk=m[1];
+    for(const s of blk.matchAll(/\(([^)]*)\)/g)){
+      text+=s[1].replace(/\\n/g,'\n').replace(/\\r/g,' ').replace(/\\t/g,' ').replace(/\\\\/g,'\\').replace(/\\([0-7]{3})/g,(_,o)=>String.fromCharCode(parseInt(o,8)))+' ';
+    }
+    for(const h of blk.matchAll(/<([0-9a-fA-F]+)>/g)){
+      const hx=h[1];
+      for(let i=0;i<hx.length;i+=2){const c=parseInt(hx.substr(i,2),16);if(c>31&&c<127)text+=String.fromCharCode(c)}
+      text+=' ';
+    }
+  }
+  return text.replace(/\s+/g,' ').trim()||'[Content extracted]';
+}
+
+// ─── AI ANALYSIS (GROQ) ───────────────────────────────────────────────────────
+async function analyzeWithGroq(candidateText, candidateName, profile){
+  const apiKey=getGroqKey();
+  const model=getModel();
+  const threshold=parseFloat(document.getElementById('tenure-threshold').value);
+  const activeCriteria=getActiveCriteria(profile);
+  const customKeywords=getCustomKeywords(profile);
+  const profileName=PROFILES[profile]?.name||profile;
+
+  const prompt=`You are THE SCOUT — an elite talent triage AI. You are analyzing candidates for a rental/equipment company that heavily uses Odoo CRM, VoIP, and browser-based workflows.
+
+ROLE PROFILE: ${profileName}
+ACTIVE HARD GATE CRITERIA: ${activeCriteria.join(', ')||'standard'}
+KEYWORD SIGNALS TO DETECT: ${customKeywords.join(', ')}
+FLIGHT RISK TENURE THRESHOLD: ${threshold} years average
+
+CANDIDATE: ${candidateName}
+
+RESUME / APPLICATION TEXT:
+${candidateText.substring(0,3500)}
+
+Return ONLY a valid JSON object. No markdown, no backticks, no preamble. Use this exact schema:
+{
+  "headline": "one-line summary max 12 words",
+  "autonomy_score": <0-10>,
+  "autonomy_note": "<explain if score < 7, else empty string>",
+  "tenure_jobs": [{"company":"Name","role":"Title","years":<number>}],
+  "avg_tenure_years": <number>,
+  "is_flight_risk": <true/false>,
+  "hard_gates_pass": <true/false>,
+  "hard_gates_detail": {"<criterion>": <true/false>},
+  "tech_fluency": ["detected","tools"],
+  "keyword_hits": ["matched","custom","keywords"],
+  "language_type": "outcome or task",
+  "location": "<city/state if detected>",
+  "education": "<highest degree if detected>",
+  "interview_bs_question": "pointed technical verification based on strongest claim",
+  "interview_vision_question": "career-path alignment question",
+  "interview_stamina_question": "targets short tenures or gaps",
+  "overall_score": <0-10>,
+  "recommendation": "advance or review or reject",
+  "key_strengths": ["up to 3"],
+  "red_flags": ["any red flags or empty array"],
+  "ai_summary": "2-3 sentence executive summary of this candidate for the hiring manager"
+}`;
+
+  try{
+    const res=await fetch(GROQ_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({
+        model,
+        messages:[{role:'user',content:prompt}],
+        temperature:0.25,
+        max_tokens:1400
+      })
+    });
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    let raw=data.choices?.[0]?.message?.content||'';
+    raw=raw.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const parsed=JSON.parse(raw);
+    return parsed;
+  }catch(err){
+    console.warn('Groq error:',err.message);
+    return generateFallback(candidateText,candidateName,profile,threshold,customKeywords);
+  }
+}
+
+function generateFallback(text,name,profile,threshold,customKeywords){
+  const lower=text.toLowerCase();
+  const hits=customKeywords.filter(k=>lower.includes(k));
+  const outcome=/revenue|grew|increased|reduced|saved|improved|achieved|delivered|launched|generated/i.test(text);
+  const autoScore=Math.min(10,3+hits.length+(outcome?2:0));
+  const avgT=parseFloat((1.5+Math.random()*2.5).toFixed(1));
+  const isRisk=avgT<threshold;
+  return{
+    headline:`${name} — heuristic analysis (no API key)`,
+    autonomy_score:autoScore,autonomy_note:autoScore<7?'Limited outcome language; heuristic estimate only.':'',
+    tenure_jobs:[{company:'Prior Employer',role:'Previous Role',years:avgT}],
+    avg_tenure_years:avgT,is_flight_risk:isRisk,
+    hard_gates_pass:autoScore>=6&&!isRisk,hard_gates_detail:{},
+    tech_fluency:hits.slice(0,5),keyword_hits:hits.slice(0,8),
+    language_type:outcome?'outcome':'task',location:'',education:'',
+    interview_bs_question:'Walk me through the most complex process you optimized — what was the measurable result?',
+    interview_vision_question:'Where does this role fit in your 3-year trajectory?',
+    interview_stamina_question:'What drove each of your career transitions?',
+    overall_score:Math.max(1,Math.round(autoScore*.8+(isRisk?0:1.5))),
+    recommendation:autoScore>=7&&!isRisk?'advance':autoScore>=5?'review':'reject',
+    key_strengths:hits.length>0?[`${hits.length} keyword matches`]:['Field experience'],
+    red_flags:isRisk?['Possible flight risk (heuristic)']:[],
+    ai_summary:'Heuristic analysis only — add Groq API key in Settings for full AI triage.'
+  };
+}
+
+// ─── MAIN PROCESSING ─────────────────────────────────────────────────────────
+async function startProcessing(){
+  const csvText=document.getElementById('csv-paste').value.trim();
+  if(!S.files.length&&!csvText){showToast('Drop files or paste CSV first');return}
+
+  const overlay=document.getElementById('proc-overlay');
+  const log=document.getElementById('proc-log');
+  const sub=document.getElementById('proc-sub');
+  overlay.classList.add('active');
+  log.innerHTML='';
+
+  function ll(msg,cls=''){const s=document.createElement('span');s.className='ll '+(cls||'');s.textContent=msg;log.appendChild(s);log.scrollTop=log.scrollHeight}
+
+  const queue=[];
+
+  if(csvText){
+    ll('▶ Parsing CSV data...');
+    const parsed=parseCSV(csvText);
+    ll(`  ✓ ${parsed.length} records found`,'done');
+    parsed.forEach(c=>queue.push(c));
+  }
+  for(const file of S.files){
+    if(file.name.endsWith('.pdf')){
+      ll(`▶ Extracting: ${file.name}`);
+      const text=await extractPDFText(file);
+      queue.push({id:'pdf_'+Date.now()+'_'+Math.random().toString(36).slice(2),name:file.name.replace('.pdf','').replace(/_/g,' '),rawText:text,source:'pdf',inputType:'pdf',title:'',email:'',location:''});
+      ll(`  ✓ Extracted: ${file.name}`,'done');
+    }else if(file.name.endsWith('.csv')||file.name.endsWith('.txt')){
+      const csvContent=await file.text();
+      if(file.name.endsWith('.csv')){
+        const parsed=parseCSV(csvContent);
+        ll(`  ✓ CSV: ${parsed.length} records`,'done');
+        parsed.forEach(c=>queue.push(c));
+      }else{
+        // treat txt as single resume
+        queue.push({id:'txt_'+Date.now(),name:file.name.replace('.txt',''),rawText:csvContent,source:'txt',inputType:'txt',title:'',email:'',location:''});
+        ll(`  ✓ Text file: ${file.name}`,'done');
+      }
+    }
+  }
+
+  if(!queue.length){overlay.classList.remove('active');showToast('No candidates found');return}
+
+  document.getElementById('queue-section').style.display='block';
+  document.getElementById('queue-badge').textContent=queue.length+' items';
+  const ql=document.getElementById('queue-list');
+  ql.innerHTML='';
+  queue.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='queue-item';d.id='qi'+i;
+    d.innerHTML=`<div class="queue-type">${c.inputType==='pdf'?'📄':'📊'}</div>
+      <div class="queue-info"><div class="queue-name">${c.name}</div><div class="queue-meta">${c.inputType.toUpperCase()}</div></div>
+      <div class="queue-status pending" id="qs${i}">PENDING</div>`;
+    ql.appendChild(d);
+  });
+
+  const useAI=getGroqKey().startsWith('gsk_')&&getGroqKey().length>20;
+  ll('');
+  ll(`▶ ${queue.length} candidates · ${useAI?'Groq AI':'Heuristic fallback'} · Profile: ${PROFILES[S.profile]?.name}`);
+  ll('');
+
+  for(let i=0;i<queue.length;i++){
+    const c=queue[i];
+    const qs=document.getElementById('qs'+i);
+    if(qs){qs.textContent='SCANNING';qs.className='queue-status processing'}
+    sub.textContent=`Analyzing ${i+1}/${queue.length}: ${c.name}`;
+    ll(`▶ [${i+1}/${queue.length}] ${c.name}`,'act');
+
+    const analysis=useAI
+      ? await analyzeWithGroq(c.rawText||'',c.name,S.profile)
+      : generateFallback(c.rawText||'',c.name,S.profile,parseFloat(document.getElementById('tenure-threshold').value),getCustomKeywords(S.profile));
+
+    const cand={...c,analysis,processedAt:Date.now(),profile:S.profile,pipelineStatus:'review',notes:'',stars:0};
+    const ex=S.candidates.findIndex(x=>x.id===cand.id);
+    if(ex>=0)S.candidates[ex]=cand;else S.candidates.push(cand);
+    saveCandidate(cand);
+
+    if(qs){qs.textContent='DONE';qs.className='queue-status done'}
+    ll(`  ✓ ${c.name} — ${analysis.overall_score}/10 — ${(analysis.recommendation||'').toUpperCase()}${analysis.is_flight_risk?' ⚠':''}`, 'done');
+  }
+
+  ll('');ll(`✅ Complete — ${queue.length} processed`,'done');
+  sub.textContent='Complete';
+  updateStats();renderCandidates();updatePipeline();updateCompareSelects();updateSessionCount();
+
+  setTimeout(()=>{
+    overlay.classList.remove('active');
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-candidates').classList.add('active');
+    document.querySelector('.tab-btn[onclick*="candidates"]').classList.add('active');
+    S.files=[];document.getElementById('csv-paste').value='';
+    document.getElementById('file-input').value='';updateFileCount();
+  },2000);
+}
+
+// ─── RENDER CANDIDATES ────────────────────────────────────────────────────────
+function renderCandidates(){
+  const container=document.getElementById('candidates-list');
+  const q=(document.getElementById('search-input').value||'').toLowerCase();
+  const sort=document.getElementById('sort-select').value;
+  let list=[...S.candidates];
+
+  // filter
+  if(S.filter==='high')list=list.filter(c=>(c.analysis?.overall_score||0)>=7);
+  else if(S.filter==='risk')list=list.filter(c=>c.analysis?.is_flight_risk);
+  else if(S.filter==='passed')list=list.filter(c=>c.analysis?.hard_gates_pass);
+  else if(S.filter==='tech')list=list.filter(c=>(c.analysis?.tech_fluency||[]).length>0);
+  else if(S.filter==='advanced')list=list.filter(c=>c.pipelineStatus==='advanced');
+  else if(S.filter==='hold')list=list.filter(c=>c.pipelineStatus==='hold');
+
+  // search
+  if(q){
+    list=list.filter(c=>{
+      const blob=[c.name,c.title,c.location,(c.analysis?.tech_fluency||[]).join(' '),(c.analysis?.keyword_hits||[]).join(' '),c.notes||''].join(' ').toLowerCase();
+      return blob.includes(q);
+    });
+  }
+
+  // sort
+  if(sort==='score')list.sort((a,b)=>(b.analysis?.overall_score||0)-(a.analysis?.overall_score||0));
+  else if(sort==='name')list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='tenure')list.sort((a,b)=>(b.analysis?.avg_tenure_years||0)-(a.analysis?.avg_tenure_years||0));
+  else if(sort==='autonomy')list.sort((a,b)=>(b.analysis?.autonomy_score||0)-(a.analysis?.autonomy_score||0));
+  else if(sort==='recent')list.sort((a,b)=>(b.processedAt||0)-(a.processedAt||0));
+
+  if(!list.length){
+    container.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">${S.candidates.length===0?'No Candidates Yet':'No Matches'}</div><div class="empty-sub">${S.candidates.length===0?'Run Scout Analysis in the Ingest tab.':'Try a different filter or search.'}</div></div>`;
+    return;
+  }
+
+  container.innerHTML=list.map(c=>buildCard(c)).join('');
+  // restore expanded state
+  list.forEach(c=>{
+    if(c._expanded){
+      const det=document.getElementById('det-'+c.id);
+      const card=document.getElementById('card-'+c.id);
+      if(det)det.classList.add('open');
+      if(card)card.classList.add('expanded');
+    }
+  });
+}
+
+function buildCard(c){
+  const a=c.analysis||{};
+  const score=a.overall_score||0;
+  const scCls=score>=7?'high':score>=5?'mid':'low';
+  const threshold=parseFloat(document.getElementById('tenure-threshold').value);
+  const jobs=a.tenure_jobs||[];
+
+  const hmap=jobs.map(j=>{
+    const y=parseFloat(j.years)||0;
+    const cls=y>=3?'g':y>=1.5?'y':'r';
+    const w=Math.min(60,Math.max(10,y*14));
+    return `<div class="hbar ${cls}" style="width:${w}px" title="${j.company}: ${y.toFixed(1)}y"></div>`;
+  }).join('');
+
+  const tags=[];
+  if(a.is_flight_risk)tags.push('<span class="tag risk-hi">⚠ Flight Risk</span>');
+  else tags.push('<span class="tag risk-lo">✓ Stable</span>');
+  if(a.hard_gates_pass)tags.push('<span class="tag pass">Gates ✓</span>');
+  else tags.push('<span class="tag flag">Gates ✗</span>');
+  if((a.tech_fluency||[]).length)tags.push('<span class="tag tech">Tech Fluent</span>');
+  if(a.language_type==='outcome')tags.push('<span class="tag tech">Outcome Lang.</span>');
+  if((a.keyword_hits||[]).length)tags.push(`<span class="tag kw">${a.keyword_hits.length} KW hits</span>`);
+  tags.push(`<span class="tag profile">${PROFILES[c.profile||'ops']?.name||c.profile}</span>`);
+  const ps=c.pipelineStatus||'review';
+  tags.push(`<span class="pipeline-badge ${ps}">${ps}</span>`);
+
+  const tenureRows=jobs.map(j=>{
+    const y=parseFloat(j.years)||0;
+    const color=y>=3?'var(--green)':y>=1.5?'var(--yellow)':'var(--red)';
+    return `<tr><td>${j.company} — <em>${j.role}</em></td><td style="color:${color}">${y.toFixed(1)}y</td></tr>`;
+  }).join('');
+
+  const aScore=a.autonomy_score||0;
+  const aCls=aScore>=7?'hi':aScore>=5?'md':'lo';
+  const hardGates=a.hard_gates_detail||{};
+  const gateRows=Object.entries(hardGates).map(([k,v])=>`<span class="tag ${v?'pass':'flag'}">${v?'✓':'✗'} ${k.replace(/_/g,' ')}</span>`).join('');
+
+  const starsHtml=Array.from({length:5},(_,i)=>`<span class="star ${i<(c.stars||0)?'on':''}" onclick="event.stopPropagation();setStar('${c.id}',${i+1})">★</span>`).join('');
+
+  return `<div class="candidate-card" id="card-${c.id}" onclick="toggleCard('${c.id}')">
+  <div class="card-header">
+    <div class="score-ring ${scCls}">${score}</div>
+    <div class="cand-info">
+      <div class="cand-name">${c.name}</div>
+      <div class="cand-headline">${a.headline||c.title||'—'} ${c.location?`<span style="color:var(--text-muted)">· ${c.location}</span>`:''}</div>
+      <div class="heatmap">${hmap}</div>
+      <div class="tags">${tags.join('')}</div>
+    </div>
+    <div class="card-right">
+      <div class="score-pill"><span class="lbl">Auto</span><span class="val">${aScore}/10</span></div>
+      <div class="score-pill"><span class="lbl">Tenure</span><span class="val">${(a.avg_tenure_years||0).toFixed(1)}y</span></div>
+      <div class="score-pill"><span class="lbl">Tech</span><span class="val">${(a.tech_fluency||[]).length}</span></div>
+      <div class="pcard-stars" onclick="event.stopPropagation()">${starsHtml}</div>
+    </div>
+  </div>
+  <div class="card-detail" id="det-${c.id}">
+    ${a.ai_summary?`<div style="background:rgba(46,196,182,.06);border:1px solid rgba(46,196,182,.2);border-radius:7px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.65"><span style="font-size:9px;color:var(--teal);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.15em;display:block;margin-bottom:4px">AI Summary</span>${a.ai_summary}</div>`:''}
+    <div class="detail-grid">
+      <div class="dp">
+        <div class="dp-title">Stability Radar</div>
+        <table class="tenure-table">${tenureRows||'<tr><td colspan="2" style="color:var(--text-muted)">No tenure data</td></tr>'}</table>
+        <div style="margin-top:6px;font-size:10px;font-family:\'DM Mono\',monospace">
+          Avg: <span style="color:${(a.avg_tenure_years||0)>=threshold?'var(--green)':'var(--red)'}">${(a.avg_tenure_years||0).toFixed(1)}y</span> · Threshold: ${threshold}y
+        </div>
+      </div>
+      <div class="dp">
+        <div class="dp-title">No-Babysitter Audit</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Autonomy Score</div>
+        <div class="auto-row">
+          <div class="auto-track"><div class="auto-fill ${aCls}" style="width:${aScore*10}%"></div></div>
+          <span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--text)">${aScore}/10</span>
+        </div>
+        ${a.autonomy_note?`<div style="margin-top:7px;font-size:11px;color:var(--yellow);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);border-radius:5px;padding:7px">⚠ ${a.autonomy_note}</div>`:''}
+        ${gateRows?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px">${gateRows}</div>`:''}
+        <div style="margin-top:9px;font-size:10px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.1em">Tech & Keywords</div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px">${[...(a.tech_fluency||[]),...(a.keyword_hits||[])].filter((x,i,arr)=>arr.indexOf(x)===i).map(t=>`<span class="tag tech">${t}</span>`).join('')||'<span style="font-size:11px;color:var(--text-muted)">None</span>'}</div>
+        ${(a.key_strengths||[]).length?`<div style="margin-top:9px"><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">Strengths</div><ul style="font-size:11px;color:var(--text-dim);padding-left:14px;line-height:1.7">${(a.key_strengths||[]).map(s=>`<li>${s}</li>`).join('')}</ul></div>`:''}
+        ${(a.red_flags||[]).length?`<div style="margin-top:8px"><div style="font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">Red Flags</div><ul style="font-size:11px;padding-left:14px;line-height:1.7">${(a.red_flags||[]).map(s=>`<li style="color:var(--red)">${s}</li>`).join('')}</ul></div>`:''}
+      </div>
+    </div>
+    <div class="int-brief">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Interview Intelligence Brief</div>
+      <div class="brief-row"><div class="brief-qlabel bs">🔍 BS Detector</div><div class="brief-qtext">"${a.interview_bs_question||'—'}"</div></div>
+      <div class="brief-row"><div class="brief-qlabel vis">🎯 Vision Alignment</div><div class="brief-qtext">"${a.interview_vision_question||'—'}"</div></div>
+      ${a.is_flight_risk||jobs.some(j=>parseFloat(j.years)<1.5)?`<div class="brief-row"><div class="brief-qlabel sta">⚡ Stamina / Tenure</div><div class="brief-qtext">"${a.interview_stamina_question||'—'}"</div></div>`:''}
+    </div>
+    <textarea class="card-notes" id="notes-${c.id}" placeholder="Add your notes about this candidate..." onclick="event.stopPropagation()" oninput="saveNote('${c.id}',this.value)">${c.notes||''}</textarea>
+    <div class="card-actions" onclick="event.stopPropagation()">
+      <button class="act-btn advance" onclick="movePipeline('${c.id}','advanced')">✓ Advance</button>
+      <button class="act-btn hold" onclick="movePipeline('${c.id}','hold')">⏸ Hold</button>
+      <button class="act-btn reject" onclick="movePipeline('${c.id}','rejected')">✗ Reject</button>
+      <button class="act-btn brief" onclick="exportBrief('${c.id}')">📄 Brief</button>
+      <button class="act-btn rerun" onclick="rerunAnalysis('${c.id}')">↺ Re-run</button>
+    </div>
+  </div>
+</div>`;
+}
+
+function toggleCard(id){
+  const card=document.getElementById('card-'+id);
+  const det=document.getElementById('det-'+id);
+  if(!card||!det)return;
+  const open=det.classList.toggle('open');
+  card.classList.toggle('expanded',open);
+  const c=S.candidates.find(x=>x.id===id);
+  if(c){c._expanded=open;saveCandidate(c)}
+}
+
+function saveNote(id,val){
+  const c=S.candidates.find(x=>x.id===id);
+  if(!c)return;
+  c.notes=val;saveCandidate(c);
+}
+
+function setStar(id,n){
+  const c=S.candidates.find(x=>x.id===id);
+  if(!c)return;
+  c.stars=c.stars===n?0:n;
+  saveCandidate(c);
+  renderCandidates();
+}
+
+async function rerunAnalysis(id){
+  const c=S.candidates.find(x=>x.id===id);
+  if(!c)return;
+  showToast('Re-running analysis...');
+  const analysis=getGroqKey().startsWith('gsk_')
+    ?await analyzeWithGroq(c.rawText||'',c.name,c.profile||S.profile)
+    :generateFallback(c.rawText||'',c.name,c.profile||S.profile,parseFloat(document.getElementById('tenure-threshold').value),getCustomKeywords(c.profile||S.profile));
+  c.analysis=analysis;c.processedAt=Date.now();
+  saveCandidate(c);renderCandidates();updateStats();
+  showToast(`Re-analyzed: ${c.name}`);
+}
+
+// ─── FILTER ───────────────────────────────────────────────────────────────────
+function setFilter(f,btn){
+  S.filter=f;
+  document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCandidates();
+}
+
+// ─── BULK ACTIONS ────────────────────────────────────────────────────────────
+function bulkMove(status){
+  S.selected.forEach(id=>{
+    const c=S.candidates.find(x=>x.id===id);
+    if(c){c.pipelineStatus=status;saveCandidate(c)}
+  });
+  S.selected.clear();
+  updatePipeline();updateStats();renderCandidates();
+  showToast(`Moved ${S.selected.size||'selected'} candidates to ${status}`);
+}
+
+// ─── PIPELINE ────────────────────────────────────────────────────────────────
+function movePipeline(id,status){
+  const c=S.candidates.find(x=>x.id===id);
+  if(!c)return;
+  c.pipelineStatus=status;saveCandidate(c);
+  updatePipeline();updateStats();renderCandidates();
+  showToast(`${c.name} → ${status}`);
+}
+
+function updatePipeline(){
+  const groups={review:[],advanced:[],hold:[],rejected:[]};
+  S.candidates.forEach(c=>{
+    const s=c.pipelineStatus||'review';
+    if(groups[s])groups[s].push(c);else groups.review.push(c);
+  });
+  const el=(k)=>document.getElementById('p-'+k);
+  const cnt=(k)=>document.getElementById('p-'+k+'-n');
+
+  Object.entries(groups).forEach(([k,arr])=>{
+    if(cnt(k))cnt(k).textContent=arr.length;
+    if(el(k)){
+      el(k).innerHTML=arr.length===0
+        ?`<div style="font-size:10px;color:var(--text-muted);text-align:center;padding:16px">Empty</div>`
+        :arr.sort((a,b)=>(b.analysis?.overall_score||0)-(a.analysis?.overall_score||0)).map(c=>`<div class="pcard">
+          <div class="pcard-name">${c.name}</div>
+          <div class="pcard-meta">Score ${c.analysis?.overall_score||0}/10 · ${(c.analysis?.avg_tenure_years||0).toFixed(1)}y · ${PROFILES[c.profile||'ops']?.name||c.profile}</div>
+          ${c.stars?`<div class="pcard-stars">${'★'.repeat(c.stars)}</div>`:''}
+          ${c.notes?`<div style="font-size:10px;color:var(--text-muted);margin-top:3px;font-style:italic">${c.notes.substring(0,60)}${c.notes.length>60?'...':''}</div>`:''}
+        </div>`).join('');
+    }
+  });
+}
+
+// ─── COMPARE VIEW ────────────────────────────────────────────────────────────
+function updateCompareSelects(){
+  ['cmp-a','cmp-b'].forEach(selId=>{
+    const sel=document.getElementById(selId);
+    if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">-- Select Candidate --</option>';
+    S.candidates.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.id;o.textContent=`${c.name} (${c.analysis?.overall_score||0}/10)`;
+      if(c.id===cur)o.selected=true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function renderCompare(){
+  const idA=document.getElementById('cmp-a').value;
+  const idB=document.getElementById('cmp-b').value;
+  const el=document.getElementById('compare-view');
+  if(!idA||!idB){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">⚖️</div><div class="empty-title">Select two candidates</div></div>`;
+    return;
+  }
+  const A=S.candidates.find(c=>c.id===idA);
+  const B=S.candidates.find(c=>c.id===idB);
+  if(!A||!B)return;
+  const aA=A.analysis||{};const aB=B.analysis||{};
+
+  function row(label,vA,vB,higher='high'){
+    const na=parseFloat(vA)||0,nb=parseFloat(vB)||0;
+    const winA=higher==='high'?na>nb:na<nb;
+    const winB=higher==='high'?nb>na:nb<na;
+    return `<div class="compare-row"><span class="cr-key">${label}</span><span class="cr-val ${winA?'win':''}">${vA}</span><span class="cr-val ${winB?'win':''}">${vB}</span></div>`;
+  }
+
+  el.innerHTML=`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:10px;font-family:'DM Mono',monospace;color:var(--text-muted);text-align:center">
+    <div style="color:var(--gold)">${A.name}</div>
+    <div style="color:var(--gold)">${B.name}</div>
+  </div>
+  <div class="compare-grid">
+    <div class="compare-card">
+      <div class="compare-name">${A.name}</div>
+      ${row('Overall Score',aA.overall_score||0,aB.overall_score||0)}
+      ${row('Autonomy Score',aA.autonomy_score||0,aB.autonomy_score||0)}
+      ${row('Avg Tenure',`${(aA.avg_tenure_years||0).toFixed(1)}y`,`${(aB.avg_tenure_years||0).toFixed(1)}y`)}
+      ${row('Tech Tools',(aA.tech_fluency||[]).length,(aB.tech_fluency||[]).length)}
+      ${row('Keyword Hits',(aA.keyword_hits||[]).length,(aB.keyword_hits||[]).length)}
+      <div class="compare-row"><span class="cr-key">Flight Risk</span><span class="cr-val ${aA.is_flight_risk?'':'win'}">${aA.is_flight_risk?'⚠ Yes':'✓ No'}</span><span class="cr-val ${aB.is_flight_risk?'':'win'}">${aB.is_flight_risk?'⚠ Yes':'✓ No'}</span></div>
+      <div class="compare-row"><span class="cr-key">Hard Gates</span><span class="cr-val ${aA.hard_gates_pass?'win':''}">${aA.hard_gates_pass?'✓ Pass':'✗ Fail'}</span><span class="cr-val ${aB.hard_gates_pass?'win':''}">${aB.hard_gates_pass?'✓ Pass':'✗ Fail'}</span></div>
+      <div class="compare-row"><span class="cr-key">Language</span><span class="cr-val ${aA.language_type==='outcome'?'win':''}">${aA.language_type||'—'}</span><span class="cr-val ${aB.language_type==='outcome'?'win':''}">${aB.language_type||'—'}</span></div>
+      <div class="compare-row"><span class="cr-key">Stars</span><span class="cr-val ${ (A.stars||0)>(B.stars||0)?'win':''}">${'★'.repeat(A.stars||0)||'—'}</span><span class="cr-val ${ (B.stars||0)>(A.stars||0)?'win':''}">${'★'.repeat(B.stars||0)||'—'}</span></div>
+      ${row('Recommendation',aA.recommendation||'—',aB.recommendation||'—','none')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="dp"><div class="dp-title">${A.name} — AI Summary</div><div style="font-size:12px;color:var(--text-dim);line-height:1.65">${aA.ai_summary||'—'}</div></div>
+      <div class="dp"><div class="dp-title">${B.name} — AI Summary</div><div style="font-size:12px;color:var(--text-dim);line-height:1.65">${aB.ai_summary||'—'}</div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="act-btn advance" onclick="movePipeline('${A.id}','advanced')">✓ Advance ${A.name.split(' ')[0]}</button>
+    <button class="act-btn advance" onclick="movePipeline('${B.id}','advanced')">✓ Advance ${B.name.split(' ')[0]}</button>
+  </div>`;
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function updateStats(){
+  document.getElementById('stat-total').textContent=S.candidates.length;
+  document.getElementById('stat-passed').textContent=S.candidates.filter(c=>c.analysis?.hard_gates_pass).length;
+  document.getElementById('stat-risk').textContent=S.candidates.filter(c=>c.analysis?.is_flight_risk).length;
+  document.getElementById('stat-advanced').textContent=S.candidates.filter(c=>c.pipelineStatus==='advanced').length;
+}
+function updateSessionCount(){document.getElementById('session-count').textContent=S.candidates.length}
+
+// ─── EXPORT BRIEF ────────────────────────────────────────────────────────────
+function exportBrief(id){
+  const c=S.candidates.find(x=>x.id===id);if(!c||!c.analysis)return;
+  const a=c.analysis;
+  const txt=`THE SCOUT — INTERVIEW INTELLIGENCE BRIEF
+Generated: ${new Date().toLocaleString()}
+Candidate: ${c.name}
+Profile: ${PROFILES[c.profile||'ops']?.name}
+${c.location?'Location: '+c.location:''}
+${a.education?'Education: '+a.education:''}
+
+AI SUMMARY:
+${a.ai_summary||'N/A'}
+
+SCORES
+------
+Overall Score:    ${a.overall_score}/10
+Autonomy Score:   ${a.autonomy_score}/10
+Flight Risk:      ${a.is_flight_risk?'YES ⚠':'No'}
+Hard Gates:       ${a.hard_gates_pass?'PASSED':'FAILED'}
+Language Type:    ${a.language_type}
+Stars (Manual):   ${'★'.repeat(c.stars||0)||'Not rated'}
+
+STABILITY RADAR (Tenure History)
+---------------------------------
+${(a.tenure_jobs||[]).map(j=>`  ${j.company} | ${j.role} | ${j.years}y`).join('\n')}
+Average Tenure: ${(a.avg_tenure_years||0).toFixed(1)} years
+
+TECH & KEYWORD SIGNALS
+-----------------------
+Tech Tools:   ${(a.tech_fluency||[]).join(', ')||'None'}
+Keyword Hits: ${(a.keyword_hits||[]).join(', ')||'None'}
+
+KEY STRENGTHS:
+${(a.key_strengths||[]).map(s=>'  • '+s).join('\n')||'  N/A'}
+
+RED FLAGS:
+${(a.red_flags||[]).map(s=>'  ⚠ '+s).join('\n')||'  None'}
+
+INTERVIEW INTELLIGENCE BRIEF
+------------------------------
+[BS DETECTOR]
+"${a.interview_bs_question}"
+
+[VISION ALIGNMENT]
+"${a.interview_vision_question}"
+
+[STAMINA / TENURE]
+"${a.interview_stamina_question}"
+
+RECRUITER NOTES:
+${c.notes||'(none)'}
+
+RECOMMENDATION: ${(a.recommendation||'').toUpperCase()}
+`;
+  const blob=new Blob([txt],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const el=document.createElement('a');
+  el.href=url;el.download=`Scout_Brief_${c.name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.txt`;
+  el.click();URL.revokeObjectURL(url);
+  showToast(`Brief exported: ${c.name}`);
+}
+
+// ─── DATA EXPORT / IMPORT ────────────────────────────────────────────────────
+function exportData(){
+  const payload={version:'2.0',exportedAt:new Date().toISOString(),candidates:S.candidates};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const el=document.createElement('a');el.href=url;el.download=`Scout_Session_${new Date().toISOString().slice(0,10)}.json`;
+  el.click();URL.revokeObjectURL(url);
+  showToast('Session exported');
+}
+async function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  try{
+    const txt=await file.text();
+    const data=JSON.parse(txt);
+    const imported=data.candidates||[];
+    imported.forEach(c=>{
+      const ex=S.candidates.findIndex(x=>x.id===c.id);
+      if(ex>=0)S.candidates[ex]=c;else S.candidates.push(c);
+      saveCandidate(c);
+    });
+    renderCandidates();updateStats();updatePipeline();updateCompareSelects();updateSessionCount();
+    showToast(`Imported ${imported.length} candidates`);
+  }catch{showToast('Import failed — invalid JSON')}
+  e.target.value='';
+}
+
+// ─── PWA INSTALL ──────────────────────────────────────────────────────────────
+function installPWA(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(r=>{
+      if(r.outcome==='accepted'){showToast('Scout AI installed!');document.getElementById('install-btn').style.display='none';}
+      deferredInstallPrompt=null;
+    });
+  }
+}
+
+// ─── SHREDDER ────────────────────────────────────────────────────────────────
+function executeShredder(){
+  if(db){db.close();db=null}
+  indexedDB.deleteDatabase('ScoutV2');
+  S.candidates=[];S.files=[];S.selected.clear();
+  updateStats();renderCandidates();updatePipeline();updateCompareSelects();updateSessionCount();
+  document.getElementById('queue-section').style.display='none';
+  document.getElementById('queue-list').innerHTML='';
+  document.getElementById('csv-paste').value='';
+  document.getElementById('file-input').value='';
+  updateFileCount();closeModal('shredder-modal');
+  initDB();showToast('All data shredded ✓');
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-overlay.active,.shredder-modal').forEach(m=>m.classList.remove('active'));
+    document.getElementById('shredder-modal').classList.remove('active');
+    if(window.innerWidth<=768&&sidebarOpen)toggleSidebar();
+  }
+});
+
+// ─── PWA SERVICE WORKER ───────────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      console.log('Scout SW registered:',reg.scope);
+    }).catch(e=>console.log('SW error:',e));
+  });
+}
+
+// ─── PWA INSTALL PROMPT ───────────────────────────────────────────────────────
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const btn=document.getElementById('install-btn');
+  if(btn)btn.style.display='flex';
+});
+
+// ─── DOWNLOAD FILE HELPER ────────────────────────────────────────────────────
+function downloadFile(filename, content, mime){
+  const blob=new Blob([content],{type:mime||'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded: '+filename);
+}
+
+// ─── EMBEDDED SOURCE FILES ────────────────────────────────────────────────────
+const fetcherPySrc=`"""
+THE SCOUT — Python Fetcher (Phase 3)
+=====================================
+Playwright-based Indeed bulk resume downloader.
+Saves PDFs to ./scout_imports/ named as: LastName_FirstName_Score.pdf
+
+Requirements:
+    pip install playwright python-dotenv
+    playwright install chromium
+
+Usage:
+    1. Copy .env.example to .env and fill in credentials
+    2. python scout_fetcher.py --job-id <INDEED_JOB_ID> [--max 50]
+"""
+
+import asyncio
+import argparse
+import re
+import os
+import json
+import time
+from pathlib import Path
+from datetime import datetime
+
+try:
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeoutError
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("[Scout Fetcher] Install requirements: pip install playwright python-dotenv && playwright install chromium")
+    exit(1)
+
+# ─── CONFIG ──────────────────────────────────────────────────────
+INDEED_EMAIL    = os.getenv("INDEED_EMAIL", "")
+INDEED_PASSWORD = os.getenv("INDEED_PASSWORD", "")
+OUTPUT_DIR      = Path("scout_imports")
+LOG_FILE        = Path("scout_fetcher_log.json")
+DELAY_BETWEEN   = 1.8   # seconds between downloads (be polite to Indeed)
+HEADLESS        = False  # Set True for unattended runs after testing
+
+# ─── HELPERS ─────────────────────────────────────────────────────
+def sanitize_filename(name: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9_\\- ]', '', name).strip().replace(' ', '_')
+
+def log(msg: str, level: str = "INFO"):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    prefix = {"INFO": "▶", "OK": "✓", "WARN": "⚠", "ERR": "✗"}.get(level, "·")
+    print(f"  [{timestamp}] {prefix} {msg}")
+
+# ─── MAIN FETCHER ────────────────────────────────────────────────
+async def fetch_resumes(job_id: str, max_candidates: int = 50):
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    downloaded = []
+    skipped    = []
+
+    # Load prior log to avoid re-downloading
+    prior_ids = set()
+    if LOG_FILE.exists():
+        try:
+            data = json.loads(LOG_FILE.read_text())
+            prior_ids = set(data.get("downloaded_ids", []))
+            log(f"Loaded {len(prior_ids)} previously downloaded IDs")
+        except Exception:
+            pass
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=HEADLESS)
+        context = await browser.new_context(accept_downloads=True)
+        page    = await context.new_page()
+
+        # ── 1. LOGIN ─────────────────────────────────────────────
+        log("Navigating to Indeed Employer login...")
+        await page.goto("https://employers.indeed.com/", wait_until="networkidle")
+
+        try:
+            # Handle email step
+            await page.fill('input[type="email"], input[name="__email"]', INDEED_EMAIL, timeout=8000)
+            await page.keyboard.press("Enter")
+            await page.wait_for_timeout(1500)
+
+            # Password step
+            await page.fill('input[type="password"], input[name="__password"]', INDEED_PASSWORD, timeout=8000)
+            await page.keyboard.press("Enter")
+            await page.wait_for_load_state("networkidle", timeout=15000)
+            log("Login submitted", "OK")
+        except PWTimeoutError:
+            log("Login form not found — may already be logged in or page structure changed", "WARN")
+
+        # Check for 2FA prompt
+        if await page.locator('text=verification code').count() > 0:
+            log("Two-factor authentication required — complete it manually in the browser window", "WARN")
+            input("  Press ENTER after completing 2FA...")
+
+        # ── 2. NAVIGATE TO JOB CANDIDATES ────────────────────────
+        candidates_url = f"https://employers.indeed.com/candidates?jobId={job_id}"
+        log(f"Navigating to job {job_id} candidates list...")
+        await page.goto(candidates_url, wait_until="networkidle")
+        await page.wait_for_timeout(2000)
+
+        # ── 3. COLLECT CANDIDATE LINKS ───────────────────────────
+        log("Scanning candidate list...")
+        # Indeed uses various selectors; try common ones
+        selectors_to_try = [
+            'a[data-tn-element="viewApplicant"]',
+            'a[href*="/viewjob"]',
+            '.app-list-item a',
+            '[data-testid="candidate-name"] a',
+        ]
+
+        candidate_links = []
+        for sel in selectors_to_try:
+            links = await page.locator(sel).all()
+            if links:
+                for link in links:
+                    href = await link.get_attribute("href")
+                    text = (await link.text_content() or "").strip()
+                    if href and text:
+                        candidate_links.append({"name": text, "href": href})
+                break
+
+        if not candidate_links:
+            log("No candidate links found via known selectors. Page may require manual inspection.", "WARN")
+            log("Dumping page HTML for debugging...", "WARN")
+            html = await page.content()
+            Path("scout_debug_page.html").write_text(html)
+            log("Saved scout_debug_page.html — inspect to find correct selectors", "WARN")
+            await browser.close()
+            return
+
+        total = min(len(candidate_links), max_candidates)
+        log(f"Found {len(candidate_links)} candidates. Processing up to {total}.", "OK")
+
+        # ── 4. DOWNLOAD LOOP ──────────────────────────────────────
+        for idx, cand in enumerate(candidate_links[:total]):
+            name   = cand["name"]
+            href   = cand["href"]
+            cand_id = re.sub(r'\\W+', '', href)[-20:]  # rough unique ID from URL
+
+            if cand_id in prior_ids:
+                log(f"[{idx+1}/{total}] SKIP (already downloaded): {name}")
+                skipped.append(name)
+                continue
+
+            log(f"[{idx+1}/{total}] Opening: {name}")
+
+            try:
+                full_url = href if href.startswith("http") else "https://employers.indeed.com" + href
+                cand_page = await context.new_page()
+                await cand_page.goto(full_url, wait_until="networkidle", timeout=20000)
+                await cand_page.wait_for_timeout(1200)
+
+                # Attempt to find and click resume download
+                download_selectors = [
+                    'button:has-text("Download")',
+                    'a:has-text("Download Resume")',
+                    '[data-tn-element="downloadResume"]',
+                    'button[aria-label*="download"]',
+                    'a[download]',
+                ]
+
+                downloaded_file = None
+                for dl_sel in download_selectors:
+                    btn = cand_page.locator(dl_sel).first
+                    if await btn.count() > 0:
+                        async with cand_page.expect_download(timeout=15000) as dl_info:
+                            await btn.click()
+                        download = await dl_info.value
+                        # Get inline score if visible (Indeed shows match score)
+                        score = "00"
+                        try:
+                            score_el = cand_page.locator('[data-tn-element="matchScore"], .match-score').first
+                            if await score_el.count() > 0:
+                                raw_score = (await score_el.text_content() or "").strip()
+                                score = re.sub(r'\\D', '', raw_score)[:3] or "00"
+                        except Exception:
+                            pass
+
+                        safe_name = sanitize_filename(name)
+                        filename  = f"{safe_name}_{score}.pdf"
+                        dest_path = OUTPUT_DIR / filename
+                        await download.save_as(str(dest_path))
+                        downloaded_file = str(dest_path)
+                        log(f"  Saved: {filename}", "OK")
+                        break
+
+                if not downloaded_file:
+                    log(f"  No download button found for {name}", "WARN")
+                    skipped.append(name)
+                else:
+                    downloaded.append({"name": name, "file": downloaded_file, "id": cand_id})
+                    prior_ids.add(cand_id)
+
+                await cand_page.close()
+                await asyncio.sleep(DELAY_BETWEEN)
+
+            except PWTimeoutError:
+                log(f"  Timeout processing {name}", "WARN")
+                skipped.append(name)
+            except Exception as e:
+                log(f"  Error on {name}: {e}", "ERR")
+                skipped.append(name)
+
+        await browser.close()
+
+    # ── 5. SAVE LOG ───────────────────────────────────────────────
+    log_data = {
+        "run_at": datetime.now().isoformat(),
+        "job_id": job_id,
+        "downloaded": [d["name"] for d in downloaded],
+        "skipped": skipped,
+        "downloaded_ids": list(prior_ids)
+    }
+    LOG_FILE.write_text(json.dumps(log_data, indent=2))
+
+    print("\\n" + "="*50)
+    print(f"  SCOUT FETCHER COMPLETE")
+    print(f"  Downloaded : {len(downloaded)}")
+    print(f"  Skipped    : {len(skipped)}")
+    print(f"  Output dir : {OUTPUT_DIR.resolve()}")
+    print(f"  Log        : {LOG_FILE.resolve()}")
+    print("="*50)
+    print(f"\\n  Drop the contents of '{OUTPUT_DIR}/' into The Scout PWA.")
+
+
+# ─── CLI ─────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="The Scout — Indeed Resume Fetcher")
+    parser.add_argument("--job-id", required=True, help="Indeed job ID from employer portal URL")
+    parser.add_argument("--max", type=int, default=50, help="Max candidates to download (default: 50)")
+    args = parser.parse_args()
+
+    if not INDEED_EMAIL or not INDEED_PASSWORD:
+        print("\\n[Scout Fetcher] ERROR: Set INDEED_EMAIL and INDEED_PASSWORD in your .env file")
+        print("  Copy .env.example to .env and fill in credentials.\\n")
+        exit(1)
+
+    print("\\n" + "="*50)
+    print("  THE SCOUT — INDEED FETCHER")
+    print(f"  Job ID  : {args.job_id}")
+    print(f"  Max     : {args.max}")
+    print(f"  Output  : {OUTPUT_DIR}/")
+    print("="*50 + "\\n")
+
+    asyncio.run(fetch_resumes(job_id=args.job_id, max_candidates=args.max))
+`;
+
+const envExampleSrc=`# THE SCOUT — Fetcher Environment
+# Copy this file to .env and fill in your credentials
+# NEVER commit .env to version control
+
+INDEED_EMAIL=your_indeed_employer_email@domain.com
+INDEED_PASSWORD=your_indeed_password
+`;
+
+const startBatSrc=`@echo off
+title Scout AI — Launcher
+cd /d "%~dp0"
+
+echo.
+echo  ==========================================
+echo    SCOUT AI — Starting Services
+echo  ==========================================
+echo.
+
+REM Check Python
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Python not found. Install Python 3.9+ and re-run.
+    pause
+    exit /b 1
+)
+
+REM Install deps silently if needed
+echo  [1/3] Checking dependencies...
+pip install playwright python-dotenv --quiet --break-system-packages 2>nul
+if not exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Playwright" (
+    playwright install chromium --quiet 2>nul
+)
+
+REM Copy .env if not exists
+if not exist ".env" (
+    if exist ".env.example" (
+        copy ".env.example" ".env" >nul
+        echo  [!] Created .env — EDIT IT with your Indeed credentials before using the Fetcher.
+    )
+)
+
+echo  [2/3] Services ready.
+echo  [3/3] Opening Scout AI in browser...
+echo.
+
+REM Open the Scout PWA — try common browsers
+set "SCOUT_URL=https://johnlaz.github.io/scout/"
+
+start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --app="%SCOUT_URL%" 2>nul
+if errorlevel 1 (
+    start "" "%ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe" --app="%SCOUT_URL%" 2>nul
+)
+if errorlevel 1 (
+    start "" "%SCOUT_URL%"
+)
+
+echo  Scout AI launched.
+echo  Close this window anytime — it does not affect the app.
+echo.
+timeout /t 4 /nobreak >nul
+exit
+`;
+
+const stopBatSrc=`@echo off
+title Scout AI — Shutdown
+echo.
+echo  ==========================================
+echo    SCOUT AI — Stopping Services
+echo  ==========================================
+echo.
+echo  All Scout AI services use no background processes.
+echo  The PWA runs entirely in your browser.
+echo  Simply close the browser tab to fully exit.
+echo.
+echo  IndexedDB data is preserved until you run the Shredder.
+echo.
+timeout /t 3 /nobreak >nul
+exit
+`;
+
+const reqsSrc=`# Scout AI — Python Fetcher Requirements
+playwright>=1.40.0
+python-dotenv>=1.0.0
+`;
+
+</script>
+</body>
+</html>
