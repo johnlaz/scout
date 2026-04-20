@@ -1,21 +1,40 @@
-{
-  "name": "Scout AI — Talent Triage System",
-  "short_name": "Scout AI",
-  "description": "AI-powered talent triage and candidate interview intelligence system",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#0a0a0f",
-  "theme_color": "#0a0a0f",
-  "orientation": "any",
-  "categories": ["productivity", "business"],
-  "icons": [
-    { "src": "icons/icon-72x72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-96x96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
-}
+# Scout AI — Talent Triage System
+
+AI-powered candidate triage PWA built on the Lazzaro Standard.
+
+## Deploy to GitHub Pages
+
+1. Create a new repo (e.g. `yourusername/scout`)
+2. Upload all files from this folder
+3. Go to **Settings → Pages → Source: Deploy from branch → main**
+4. Your PWA will be live at `https://yourusername.github.io/scout/`
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `index.html` | Main PWA — entire app in one file |
+| `manifest.json` | PWA install manifest |
+| `sw.js` | Service worker (offline support) |
+| `icons/` | App icons for all devices |
+| `.nojekyll` | Required for GitHub Pages |
+
+## Python Fetcher (Optional)
+
+Download from inside the app → Settings → Downloads:
+
+- `scout_fetcher.py` — Playwright Indeed bulk downloader
+- `.env.example` → copy to `.env` and add credentials
+- `requirements.txt` — pip install
+- `start.bat` / `stop.bat` — Windows launchers
+
+## Stack
+
+- Frontend: Vanilla HTML/CSS/JS — zero build tools
+- AI: Groq API (`llama-3.3-70b-versatile`)
+- Storage: IndexedDB (local only)
+- Python Bridge: Playwright
+
+## Privacy
+
+All candidate data stays in your browser's IndexedDB. Only the resume text you submit for AI analysis is sent to Groq's API. Use The Shredder to wipe everything.
