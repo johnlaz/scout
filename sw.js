@@ -1,40 +1,38 @@
-# Scout AI — Talent Triage System
+const CACHE = 'scout-ai-v2.0';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap'
+];
 
-AI-powered candidate triage PWA built on the Lazzaro Standard.
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {})).then(() => self.skipWaiting())
+  );
+});
 
-## Deploy to GitHub Pages
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
 
-1. Create a new repo (e.g. `yourusername/scout`)
-2. Upload all files from this folder
-3. Go to **Settings → Pages → Source: Deploy from branch → main**
-4. Your PWA will be live at `https://yourusername.github.io/scout/`
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| `index.html` | Main PWA — entire app in one file |
-| `manifest.json` | PWA install manifest |
-| `sw.js` | Service worker (offline support) |
-| `icons/` | App icons for all devices |
-| `.nojekyll` | Required for GitHub Pages |
-
-## Python Fetcher (Optional)
-
-Download from inside the app → Settings → Downloads:
-
-- `scout_fetcher.py` — Playwright Indeed bulk downloader
-- `.env.example` → copy to `.env` and add credentials
-- `requirements.txt` — pip install
-- `start.bat` / `stop.bat` — Windows launchers
-
-## Stack
-
-- Frontend: Vanilla HTML/CSS/JS — zero build tools
-- AI: Groq API (`llama-3.3-70b-versatile`)
-- Storage: IndexedDB (local only)
-- Python Bridge: Playwright
-
-## Privacy
-
-All candidate data stays in your browser's IndexedDB. Only the resume text you submit for AI analysis is sent to Groq's API. Use The Shredder to wipe everything.
+self.addEventListener('fetch', e => {
+  // Don't cache API calls
+  if (e.request.url.includes('groq.com') || e.request.url.includes('googleapis.com/v1')) {
+    return;
+  }
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+      if (res.ok && e.request.method === 'GET') {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match('./index.html')))
+  );
+});
