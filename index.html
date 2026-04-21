@@ -41,6 +41,14 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 [data-tip]:hover::after{opacity:1}
 [data-tip].tip-left::after{left:0;transform:none}
 [data-tip].tip-right::after{left:auto;right:0;transform:none}
+[data-tip].tip-down::after{bottom:auto;top:calc(100% + 7px)}
+[data-tip].tip-sidebar::after{left:100%;bottom:auto;top:0;transform:none;margin-left:8px}
+/* ensure tags area allows overflow for tooltips */
+.tags{overflow:visible!important}
+.card-header{overflow:visible!important}
+.filter-bar{overflow:visible!important}
+/* Raise tooltip z-index above search */
+[data-tip]::after{z-index:2000}
 
 /* ── HEADER ── */
 header{height:var(--header-h);flex-shrink:0;background:rgba(10,10,15,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border-gold);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px;position:relative;z-index:200}
@@ -164,7 +172,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);pointer-events:none}
 
 /* candidate card */
-.candidate-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .18s;cursor:pointer;margin-bottom:10px}
+.candidate-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:visible;transition:border-color .18s;cursor:pointer;margin-bottom:10px;position:relative}
 .candidate-card:hover{border-color:var(--border-gold)}
 .candidate-card.expanded{border-color:var(--gold-dim)}
 .card-header{padding:14px 16px;display:flex;align-items:flex-start;gap:12px}
@@ -309,7 +317,35 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .cr-val.win{color:var(--green);font-weight:600}
 
 /* toast */
-.toast{position:fixed;bottom:20px;right:20px;z-index:800;background:var(--bg3);border:1px solid var(--border-gold);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+/* ── STAT PANEL OVERLAY ── */
+#stat-panel{display:none;position:fixed;inset:0;z-index:800;background:rgba(10,10,15,.85);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px}
+#stat-panel.active{display:flex}
+.stat-panel-box{background:var(--bg2);border:1px solid var(--border-gold);border-radius:14px;width:min(540px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.stat-panel-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.stat-panel-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold)}
+.stat-panel-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px;line-height:1}
+.stat-panel-close:hover{color:var(--text)}
+.stat-panel-body{overflow-y:auto;padding:12px 16px;flex:1}
+.spc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:border-color .15s}
+.spc:hover{border-color:var(--border-gold)}
+.spc-score{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:15px;font-weight:700;flex-shrink:0}
+.spc-score.hi{background:rgba(34,197,94,.12);color:var(--green);border:2px solid rgba(34,197,94,.35)}
+.spc-score.md{background:rgba(245,158,11,.12);color:var(--yellow);border:2px solid rgba(245,158,11,.35)}
+.spc-score.lo{background:rgba(239,68,68,.12);color:var(--red);border:2px solid rgba(239,68,68,.35)}
+.spc-info{flex:1;min-width:0}
+.spc-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.spc-sub{font-size:10px;font-family:'DM Mono',monospace;color:var(--text-muted)}
+.spc-actions{display:flex;gap:5px;flex-shrink:0}
+.spc-btn{font-size:9px;font-family:'DM Sans',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 9px;border-radius:4px;border:1px solid;cursor:pointer;transition:all .15s;white-space:nowrap}
+.spc-btn.adv{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+.spc-btn.adv:hover{background:rgba(34,197,94,.2)}
+.spc-btn.view{background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.25);color:var(--gold)}
+.spc-btn.view:hover{background:rgba(201,168,76,.16)}
+.spc-btn.rej{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:var(--red)}
+.spc-btn.rej:hover{background:rgba(239,68,68,.16)}
+.stat-panel-empty{text-align:center;padding:40px;color:var(--text-muted);font-size:13px}
+
+.toast{position:fixed;bottom:20px;right:20px;z-index:850;background:var(--bg3);border:1px solid var(--border-gold);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
 .toast.show{transform:translateY(0);opacity:1}
 
 /* empty */
@@ -570,35 +606,35 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
       <div>
         <div class="sidebar-label">Session Stats</div>
         <div class="stats-grid" style="margin-top:8px">
-          <div class="stat-box" data-tip="Total candidates loaded into this session.">
+          <div class="stat-box" data-tip="Total candidates loaded into this session." onclick="openStatPanel('total')" style="cursor:pointer">
             <div class="stat-num gold" id="stat-total">0</div>
             <div class="stat-label">Total</div>
           </div>
-          <div class="stat-box" data-tip="Candidates who passed all active Hard Gate criteria for the selected role.">
+          <div class="stat-box" data-tip="Candidates who passed Hard Gate criteria." onclick="openStatPanel('passed')" style="cursor:pointer">
             <div class="stat-num teal" id="stat-passed">0</div>
             <div class="stat-label">Gates Pass</div>
           </div>
-          <div class="stat-box" data-tip="Candidates whose average tenure is below your Flight Risk threshold — higher turnover probability.">
+          <div class="stat-box" data-tip="Candidates flagged as flight risk." onclick="openStatPanel('risk')" style="cursor:pointer">
             <div class="stat-num red" id="stat-risk">0</div>
             <div class="stat-label">Flight Risk</div>
           </div>
-          <div class="stat-box" data-tip="Candidates you've moved to Advanced status in the pipeline.">
+          <div class="stat-box" data-tip="Candidates in Advanced pipeline stage." onclick="openStatPanel('advanced')" style="cursor:pointer">
             <div class="stat-num green" id="stat-advanced">0</div>
             <div class="stat-label">Advanced</div>
           </div>
-          <div class="stat-box" data-tip="Candidates scoring 8 or higher out of 10 — top-tier picks for immediate interview consideration.">
+          <div class="stat-box" data-tip="Scored 8+ out of 10 — top tier." onclick="openStatPanel('top')" style="cursor:pointer">
             <div class="stat-num purple" id="stat-top">0</div>
             <div class="stat-label">Top Tier (8+)</div>
           </div>
-          <div class="stat-box" data-tip="Candidates AI recommends advancing based on their profile — regardless of your pipeline action.">
+          <div class="stat-box" data-tip="AI recommends advancing these candidates." onclick="openStatPanel('recommended')" style="cursor:pointer">
             <div class="stat-num yellow" id="stat-recommended">0</div>
             <div class="stat-label">AI Recommend</div>
           </div>
-          <div class="stat-box" data-tip="Average overall score across all candidates in this session.">
+          <div class="stat-box" data-tip="Average score across all candidates." onclick="openStatPanel('avg')" style="cursor:pointer">
             <div class="stat-num gold" id="stat-avg-score">—</div>
             <div class="stat-label">Avg Score</div>
           </div>
-          <div class="stat-box" data-tip="Candidates who both passed Hard Gates AND are not a Flight Risk — your strongest leads.">
+          <div class="stat-box" data-tip="Passed gates AND not a flight risk — strongest leads." onclick="openStatPanel('clean')" style="cursor:pointer">
             <div class="stat-num teal" id="stat-clean">0</div>
             <div class="stat-label">Clean Passes</div>
           </div>
@@ -709,6 +745,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
         <div class="empty"><div class="empty-icon">⚖️</div><div class="empty-title">Side-by-Side Comparison</div><div class="empty-sub">Select two candidates above.</div></div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- STAT PANEL -->
+<div id="stat-panel" onclick="closeStatPanel(event)">
+  <div class="stat-panel-box">
+    <div class="stat-panel-hdr">
+      <div class="stat-panel-title" id="sp-title">Candidates</div>
+      <button class="stat-panel-close" onclick="document.getElementById('stat-panel').classList.remove('active')">✕</button>
+    </div>
+    <div class="stat-panel-body" id="sp-body"></div>
   </div>
 </div>
 
@@ -1257,10 +1304,12 @@ function updatePipeline(){
     const s=c.pipelineStatus||'review';
     if(groups[s])groups[s].push(c);else groups.review.push(c);
   });
-  const cols={review:'rev',advanced:'adv',hold:'hld',rejected:'rej'};
+  // Map status keys to actual HTML element IDs
+  const idMap={review:'rev',advanced:'adv',hold:'hld',rejected:'rej'};
   Object.entries(groups).forEach(([k,arr])=>{
-    const cnt=document.getElementById('p-'+k+'-n');
-    const el=document.getElementById('p-'+k);
+    const elId=idMap[k]||k;
+    const cnt=document.getElementById('p-'+elId+'-n');
+    const el=document.getElementById('p-'+elId);
     if(cnt)cnt.textContent=arr.length;
     if(!el)return;
     if(arr.length===0){el.innerHTML=`<div style="font-size:10px;color:var(--text-muted);text-align:center;padding:16px">Empty</div>`;return}
@@ -1484,6 +1533,66 @@ async function importData(e){
     showToast(`Imported ${imported.length} candidates`);
   }catch{showToast('Import failed — invalid JSON')}
   e.target.value='';
+}
+
+// ─── STAT PANEL ──────────────────────────────────────────────────────────────
+const STAT_CONFIGS = {
+  total:    {title:'All Candidates',       filter:c=>true},
+  passed:   {title:'Hard Gates — Passed',  filter:c=>c.analysis?.hard_gates_pass},
+  risk:     {title:'Flight Risk',          filter:c=>c.analysis?.is_flight_risk},
+  advanced: {title:'Advanced in Pipeline', filter:c=>c.pipelineStatus==='advanced'},
+  top:      {title:'Top Tier (Score 8+)',  filter:c=>(c.analysis?.overall_score||0)>=8},
+  recommended:{title:'AI Recommends: Advance', filter:c=>c.analysis?.recommendation==='advance'},
+  avg:      {title:'All Candidates by Score', filter:c=>true},
+  clean:    {title:'Clean Passes — No Risk',  filter:c=>c.analysis?.hard_gates_pass&&!c.analysis?.is_flight_risk}
+};
+
+function openStatPanel(key){
+  const cfg=STAT_CONFIGS[key];if(!cfg)return;
+  const panel=document.getElementById('stat-panel');
+  document.getElementById('sp-title').textContent=cfg.title;
+  const matches=S.candidates.filter(cfg.filter).sort((a,b)=>(b.analysis?.overall_score||0)-(a.analysis?.overall_score||0));
+  const body=document.getElementById('sp-body');
+  if(!matches.length){body.innerHTML=`<div class="stat-panel-empty">No candidates in this category yet.</div>`;panel.classList.add('active');return;}
+  body.innerHTML=matches.map(c=>{
+    const a=c.analysis||{};
+    const s=a.overall_score||0;
+    const scCls=s>=8?'hi':s>=5?'md':'lo';
+    const tags=[];
+    if(a.is_flight_risk)tags.push('<span class="tag risk-hi">⚠ Risk</span>');
+    if(a.hard_gates_pass)tags.push('<span class="tag pass">Gates ✓</span>');
+    if(a.recommendation==='advance')tags.push('<span class="tag rec-adv">AI: Advance</span>');
+    const ps=c.pipelineStatus||'review';
+    const psLabel=ps==='review'?'Under Review':ps==='advanced'?'Advanced':ps==='hold'?'On Hold':'Rejected';
+    return `<div class="spc">
+      <div class="spc-score ${scCls}">${s}</div>
+      <div class="spc-info">
+        <div class="spc-name">${c.name}</div>
+        <div class="spc-sub">${PROFILES[c.profile||'operations']?.name||''} · ${(a.avg_tenure_years||0).toFixed(1)}y avg tenure · ${psLabel}</div>
+        <div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">${tags.join('')}</div>
+        ${a.ai_summary?`<div style="font-size:10px;color:var(--text-dim);margin-top:4px;font-style:italic;line-height:1.4">${a.ai_summary.substring(0,100)}${a.ai_summary.length>100?'...':''}</div>`:''}
+      </div>
+      <div class="spc-actions">
+        <button class="spc-btn view" onclick="closeStatPanel();jumpToCandidate('${c.id}')">View</button>
+        ${ps!=='advanced'?`<button class="spc-btn adv" onclick="movePipeline('${c.id}','advanced');refreshStatPanel('${key}')">✓ Adv</button>`:''}
+        ${ps!=='rejected'?`<button class="spc-btn rej" onclick="movePipeline('${c.id}','rejected');refreshStatPanel('${key}')">✗ Rej</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  panel.classList.add('active');
+}
+
+function refreshStatPanel(key){
+  // Re-render in place without closing
+  const cfg=STAT_CONFIGS[key];if(!cfg)return;
+  const matches=S.candidates.filter(cfg.filter).sort((a,b)=>(b.analysis?.overall_score||0)-(a.analysis?.overall_score||0));
+  // Re-open to refresh
+  openStatPanel(key);
+}
+
+function closeStatPanel(e){
+  if(!e||e.target===document.getElementById('stat-panel'))
+    document.getElementById('stat-panel').classList.remove('active');
 }
 
 // ─── SHREDDER ────────────────────────────────────────────────────────────────
